@@ -1,0 +1,16 @@
+# Snakemake
+.snakemake/
+*.snakemake.log
+
+# Results (large files)
+results/
+logs/
+
+# conda environments (built locally)
+.conda/
+
+# R
+.Rhistory
+.RData
+*.Rproj.user/
+renv/library/
