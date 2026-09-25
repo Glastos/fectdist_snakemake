@@ -1,0 +1,29 @@
+# Snakemake default profile — SLURM cluster execution
+#
+# Usage: snakemake --profile workflow/profiles/default
+# Or set SNAKEMAKE_PROFILE=workflow/profiles/default in your environment.
+
+executor: slurm
+
+# Limit concurrent jobs on the cluster
+jobs: 10
+
+# Retry failed jobs once (transient I/O errors on scratch filesystems)
+retries: 1
+
+# Keep going if unrelated jobs fail
+keep-going: true
+
+# Use conda environments defined in workflow/envs/
+use-conda: true
+
+# Default resources applied to every rule unless overridden
+default-resources:
+  mem_mb: 4096
+  runtime: 120        # minutes
+
+# Resource overrides per rule
+#set-resources:
+#  assemble:
+#    mem_mb: 32768
+#    runtime: 480
