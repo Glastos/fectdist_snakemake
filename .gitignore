@@ -2,9 +2,10 @@
 .snakemake/
 *.snakemake.log
 
-# Results (large files)
+# Results and reference (large files)
 results/
 logs/
+resources/
 
 # conda environments (built locally)
 .conda/
@@ -14,3 +15,6 @@ logs/
 .RData
 *.Rproj.user/
 renv/library/
+
+# For test
+old/
