@@ -1,5 +1,6 @@
 # Test data for the local profile: 1 M read pairs per lane of two drone pools
 # (see README, "Local test"). Only the values below differ from config/config.yaml.
+targets: [gvcf]   # the test covers the whole pipeline
 samples: config/test/samples.tsv
 units: config/test/units.tsv
 regions:
