@@ -7,4 +7,5 @@ dependencies:
   - snakemake>=8.0
   - snakemake-executor-plugin-slurm>=0.5
   - pandas>=2.0
+  - openpyxl           # tools/make_sheets.py reads the .xlsm sample table
   - graphviz           # pour --dag / --rulegraph
