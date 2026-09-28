@@ -1,0 +1,40 @@
+# ==============================================================================
+# FecDist pipeline configuration
+# ==============================================================================
+
+# Sample sheets (see README.md for the columns)
+# Can be generated using tools/make_sheets.py
+samples: config/samples.tsv   # one row per pool
+units: config/units.tsv       # one row per read group (pool x library x lane)
+
+# What `snakemake` builds by default. Available targets:
+#   bam   - recalibrated BAM per pool           results/bam/{sample}.bam
+#   gvcf  - HaplotypeCaller gVCF per pool       results/gvcf/{sample}.g.vcf.gz
+targets:
+  - bam
+
+reference:
+  # The bwa index, the .fai and the .dict must already exist next to the fasta:
+  #   bwa index ref.fa ; samtools faidx ref.fa ; gatk CreateSequenceDictionary -R ref.fa
+  fasta: resources/HAv3_1_indexes/GCF_003254395.2_Amel_HAv3.1_genomic.fna
+
+# Regions used to run the bootstrap HaplotypeCaller in parallel, from the .fai:
+# one per contig >= min_contig_size, plus one for all smaller contigs
+regions:
+  min_contig_size: 1000000
+  # Only call these contigs (empty = all), e.g. one chromosome for a test
+  include: []
+  # Contigs never called, e.g. [NC_001566.1] for the mitochondrion of Amel_HAv3.1
+  exclude: []
+
+# Bootstrap base quality score recalibration
+bqsr:
+  # Number of rounds of call known sites -> BaseRecalibrator -> ApplyBQSR.
+  # Known sites are called with the pool's ploidy from samples.tsv.
+  # 0 skips BQSR: the final BAM is the duplicate-marked BAM.
+  rounds: 2
+  # Hard filters applied to the known-sites calls (sites failing are dropped).
+  site_filter: "QD < 2.0 || FS > 60.0 || MQ < 40.0"
+  # Only annotates genotypes (FORMAT/FT): SelectVariants --exclude-filtered does
+  # not drop genotype-filtered sites, so this has no effect on the known sites.
+  genotype_filter: "GQ < 90.0"

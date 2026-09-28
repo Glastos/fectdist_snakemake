@@ -1,0 +1,4 @@
+sample	unit	fq1	fq2	library
+BB2D	CGATGT_L003	data/BB2D_CGATGT_L003_R1.fastq.gz	data/BB2D_CGATGT_L003_R2.fastq.gz	
+BB2W	ACAGTG_L003	data/BB2W_ACAGTG_L003_R1.fastq.gz	data/BB2W_ACAGTG_L003_R2.fastq.gz	
+BB2W	ACAGTG_L004	data/BB2W_ACAGTG_L004_R1.fastq.gz	data/BB2W_ACAGTG_L004_R2.fastq.gz	

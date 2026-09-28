@@ -1,7 +1,7 @@
 # Snakemake default profile — SLURM cluster execution
 #
-# Usage: snakemake --profile workflow/profiles/default
-# Or set SNAKEMAKE_PROFILE=workflow/profiles/default in your environment.
+# Usage: snakemake --profile workflow/profiles/slurm_default
+# Or set SNAKEMAKE_PROFILE=workflow/profiles/slurm_default in your environment.
 
 executor: slurm
 

@@ -1,0 +1,34 @@
+from snakemake.utils import min_version
+
+min_version("8.0")
+
+
+configfile: "config/config.yaml"
+
+
+include: "rules/common.smk"
+include: "rules/regions.smk"
+include: "rules/mapping.smk"
+include: "rules/bqsr.smk"
+include: "rules/calling.smk"
+
+
+_unknown = set(config["targets"]) - set(TARGETS)
+if _unknown:
+    raise WorkflowError(
+        f"Unknown target(s) {sorted(_unknown)}, available: {sorted(TARGETS)}"
+    )
+
+
+localrules:
+    all,
+    region_bed,
+    all_regions_bed,
+    read_group,
+    final_bam,
+
+
+rule all:
+    default_target: True
+    input:
+        [TARGETS[target] for target in config["targets"]],

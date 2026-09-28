@@ -1,0 +1,6 @@
+# Test data for the local profile: 1 M read pairs per lane of two drone pools
+# (see README, "Local test"). Only the values below differ from config/config.yaml.
+samples: config/test/samples.tsv
+units: config/test/units.tsv
+regions:
+  include: [NC_037653.1]   # smallest chromosome (7.2 Mb): keeps the test ~30 min
