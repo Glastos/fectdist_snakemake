@@ -111,7 +111,8 @@ def main():
         if pool_type is None:
             problems.append(f"{sample}: unknown Type Matrice {matrix!r}")
             continue
-        samples[sample] = (pool_type, ploidy[pool_type], table.loc[sample, "Nom Ext"])
+        name = table.loc[sample, "Nom Ext"]
+        samples[sample] = (pool_type, ploidy[pool_type], "" if pd.isna(name) else name)
 
     for sheet in (args.samples, args.units):
         if sheet.exists() and not args.force:

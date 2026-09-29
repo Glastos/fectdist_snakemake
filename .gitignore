@@ -19,3 +19,5 @@ renv/library/
 # For test
 old/
 workflow/profiles/local/config.yaml
+config/files.txt
+config/test/files.txt
