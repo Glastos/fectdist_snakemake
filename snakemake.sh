@@ -15,7 +15,19 @@ module load bioinfo/Snakemake/8.20.3
 snakemake --version
 
 # Run snakemake workflow
-snakemake --profile slurm --dry-run
+# Test dry-run
+snakemake --profile workflow/profiles/slurm_default --dry-run --configfile config/test/config.yaml
+
+# Test run
+#snakemake --profile workflow/profiles/slurm_default --configfile config/test/config.yaml
+
+# Dryrun
+#snakemake --profile workflow/profiles/slurm_default 
+
+# Rulegraph generation
+#snakemake --profile workflow/profiles/slurm_default --forceall --rulegraph \
+#--config 'targets=[gvcf,qc]' | dot -Tsvg > docs/rulegraph.svg
+
 
 # If the date is displayed, the job reachs the end
 echo "Job end: $(date '+%Y-%m-%d %R:%S.%N %Z')"
