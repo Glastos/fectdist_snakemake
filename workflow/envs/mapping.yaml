@@ -4,5 +4,5 @@ channels:
   - bioconda
   - nodefaults
 dependencies:
-  - bwa=0.7.17
+  - bwa-mem2=2.3       # same alignments as bwa 0.7.17 (old scripts), faster
   - samtools=1.21

@@ -4,7 +4,7 @@ Pool-seq pre-processing and calling, ported from `old/mappingAV_2023_Dec.sh`
 (+ `bootstrapingAV` and `callingAV`).
 
 ```
-per read group   bwa mem | samtools sort
+per read group   bwa-mem2 mem | samtools sort
 per pool         MarkDuplicates (merges the read groups)
                  bootstrap BQSR x rounds:
                      HaplotypeCaller per region -> hard filters -> known sites
@@ -32,7 +32,7 @@ per pool (modelled per read group).
   `sample`, `unit`, `fq1`, `fq2`, and optionally
   - `library` (default: the sample name, i.e. one library per pool)
 - `config/config.yaml`: reference, targets, regions, BQSR parameters.
-  The bwa index, `.fai` and `.dict` of the reference must already exist.
+  The bwa-mem2 index, `.fai` and `.dict` of the reference must already exist.
 
 To build both sheets from the provider's FASTQ names
 (`{barcode}_{library}_{flowcell}_{lane}_{1|2}.fq.gz`), with the pool type taken

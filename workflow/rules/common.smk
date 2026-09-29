@@ -83,14 +83,14 @@ REF = config["reference"]["fasta"]
 REF_FAI = f"{REF}.fai"
 REF_STEM = re.sub(r"\.(fa|fasta|fna)(\.gz)?$", "", REF)
 REF_DICT = f"{REF_STEM}.dict"
-REF_BWA = [f"{REF}{ext}" for ext in (".amb", ".ann", ".bwt", ".pac", ".sa")]
+REF_BWA = [f"{REF}{ext}" for ext in (".0123", ".amb", ".ann", ".bwt.2bit.64", ".pac")]
 
 _missing = [f for f in [REF, REF_FAI, REF_DICT, *REF_BWA] if not Path(f).exists()]
 if _missing:
     raise WorkflowError(
         "Reference files missing:\n  "
         + "\n  ".join(_missing)
-        + f"\nBuild them with:\n  bwa index {REF}\n  samtools faidx {REF}"
+        + f"\nBuild them with:\n  bwa-mem2 index {REF}\n  samtools faidx {REF}"
         f"\n  gatk CreateSequenceDictionary -R {REF}"
     )
 

@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# Per read group (unit): bwa mem | samtools sort
+# Per read group (unit): bwa-mem2 mem | samtools sort
 # Per pool: MarkDuplicates on all its read groups at once (merge + dedup)
 #
 # Follows GATK "How should I pre-process data from multiplexed sequencing and
@@ -38,7 +38,7 @@ rule bwa_mem:
     conda:
         "../envs/mapping.yaml"
     shell:
-        '(bwa mem -M -t {threads} -R "$(cat {input.rg})" {input.ref} {input.fq1} {input.fq2}'
+        '(bwa-mem2 mem -M -t {threads} -R "$(cat {input.rg})" {input.ref} {input.fq1} {input.fq2}'
         " | samtools sort -@ 2 -m 1G -T {output}.tmp -o {output} -) 2> {log}"
 
 
