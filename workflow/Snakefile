@@ -11,6 +11,7 @@ include: "rules/regions.smk"
 include: "rules/mapping.smk"
 include: "rules/bqsr.smk"
 include: "rules/calling.smk"
+include: "rules/qc.smk"
 
 
 _unknown = set(config["targets"]) - set(TARGETS)
@@ -26,6 +27,7 @@ localrules:
     all_regions_bed,
     read_group,
     final_bam,
+    qc_samples,
 
 
 rule all:

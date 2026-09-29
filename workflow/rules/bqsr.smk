@@ -137,6 +137,47 @@ rule apply_bqsr:
         " --tmp-dir {resources.tmpdir} -O {output.bam} 2> {log}"
 
 
+# QC only, never applied: measures the final BAM with the last round's known sites
+rule bqsr_final_check:
+    input:
+        bam="results/bam/{sample}.bam",
+        bai="results/bam/{sample}.bai",
+        known=lambda wildcards: expand(
+            "results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz",
+            sample=wildcards.sample,
+            round=ROUNDS,
+            region=REGIONS,
+        ),
+        known_tbi=lambda wildcards: expand(
+            "results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz.tbi",
+            sample=wildcards.sample,
+            round=ROUNDS,
+            region=REGIONS,
+        ),
+        ref=REF,
+        fai=REF_FAI,
+        dict=REF_DICT,
+        bed="results/regions/all.bed",
+    output:
+        "results/bqsr/{sample}/final.table",
+    params:
+        java=java_opts,
+        known=lambda wildcards, input: " ".join(
+            f"--known-sites {vcf}" for vcf in input.known
+        ),
+    log:
+        "logs/bqsr_final_check/{sample}.log",
+    resources:
+        mem_mb=10000,
+        runtime=1440,
+    conda:
+        "../envs/gatk.yaml"
+    shell:
+        'gatk --java-options "{params.java}" BaseRecalibrator'
+        " -R {input.ref} -I {input.bam} -L {input.bed} {params.known}"
+        " --tmp-dir {resources.tmpdir} -O {output} 2> {log}"
+
+
 # Hard link keeps the last round once the temp intermediates are removed
 rule final_bam:
     input:
@@ -148,4 +189,9 @@ rule final_bam:
         "ln -f {input.bam} {output.bam} && ln -f {input.bai} {output.bai}"
 
 
-TARGETS["bam"] = expand("results/bam/{sample}.bam", sample=SAMPLES)
+# Built with the BAMs, while the last round's known sites (temporary) still exist
+BQSR_CHECKS = []
+if ROUNDS > 0:
+    BQSR_CHECKS = expand("results/bqsr/{sample}/final.table", sample=SAMPLES)
+
+TARGETS["bam"] = expand("results/bam/{sample}.bam", sample=SAMPLES) + BQSR_CHECKS

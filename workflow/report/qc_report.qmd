@@ -1,0 +1,506 @@
+---
+title: "FecDist pipeline: QC report"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(dplyr)
+library(tidyr)
+library(readr)
+library(purrr)
+library(ggplot2)
+library(DT)
+
+theme_set(theme_bw())
+type_colours <- c(drones = "#1b9e77", workers = "#d95f02")
+
+# Project root: the folder holding workflow/Snakefile, searched upwards from the
+# current folder (results/qc/ when rendered by the pipeline, workflow/report/
+# when opened by hand)
+find_root <- function(dir = getwd()) {
+  while (!file.exists(file.path(dir, "workflow", "Snakefile"))) {
+    parent <- dirname(dir)
+    if (parent == dir) stop("Project root (folder with workflow/Snakefile) not found")
+    dir <- parent
+  }
+  dir
+}
+root <- find_root()
+
+# Paths
+qc_dir <- file.path(root, "results", "qc")
+bqsr_dir <- file.path(root, "results", "bqsr")
+
+# Amel_HAv3.1: the 16 chromosomes (labelled 1-16) and the mitochondrion
+chromosomes <- sprintf("NC_0376%02d.1", 38:53)
+chromosome_labels <- setNames(as.character(1:16), chromosomes)
+mitochondrion <- "NC_001566.1"
+
+# Pools drawn individually in the depth-along-chromosomes plot, e.g. c("GPS263943")
+highlight <- character(0)
+
+# Thresholds to flag pools: none yet
+
+samples <- read_tsv(file.path(qc_dir, "samples.tsv"), show_col_types = FALSE)
+drones <- samples$sample[samples$type == "drones"]
+
+show_table <- function(df) {
+  datatable(df, rownames = FALSE, filter = "top",
+            options = list(pageLength = 25, scrollX = TRUE))
+}
+```
+
+```{r load-samtools}
+# samtools stats: one "TAG<tab>field..." line per value; SN = summary numbers,
+# IS = insert sizes, FFQ/LFQ = quality counts per cycle of first/last reads
+stats_lines <- function(lines, tag) {
+  strsplit(lines[startsWith(lines, paste0(tag, "\t"))], "\t")
+}
+
+mean_quality_per_cycle <- function(fields, read) {
+  map_dfr(fields, function(f) {
+    counts <- as.numeric(f[-(1:2)])
+    tibble(read = read, cycle = as.numeric(f[2]),
+           mean_quality = sum((seq_along(counts) - 1) * counts) / sum(counts))
+  })
+}
+
+read_samtools_stats <- function(sample) {
+  lines <- readLines(file.path(qc_dir, "samtools_stats", paste0(sample, ".stats")))
+  list(
+    sn = map_dfr(stats_lines(lines, "SN"), function(f) {
+      tibble(key = sub(":$", "", f[2]), value = as.numeric(f[3]))
+    }) |> mutate(sample = sample),
+    is = map_dfr(stats_lines(lines, "IS"), function(f) {
+      tibble(insert_size = as.numeric(f[2]), pairs = as.numeric(f[3]))
+    }) |> mutate(sample = sample),
+    quality = bind_rows(
+      mean_quality_per_cycle(stats_lines(lines, "FFQ"), "R1"),
+      mean_quality_per_cycle(stats_lines(lines, "LFQ"), "R2")
+    ) |> mutate(sample = sample)
+  )
+}
+
+stats <- map(samples$sample, read_samtools_stats)
+
+mapping <- map_dfr(stats, "sn") |>
+  pivot_wider(names_from = key, values_from = value) |>
+  transmute(
+    sample,
+    reads_M = `raw total sequences` / 1e6,
+    mapped_pct = 100 * `reads mapped` / `raw total sequences`,
+    properly_paired_pct = 100 * `reads properly paired` / `raw total sequences`,
+    duplicates_pct = 100 * `reads duplicated` / `raw total sequences`,
+    mapq0_pct = 100 * `reads MQ0` / `reads mapped`,
+    error_rate = `error rate`,
+    insert_size_mean = `insert size average`,
+    insert_size_sd = `insert size standard deviation`
+  )
+```
+
+```{r load-mosdepth}
+depth_file <- function(sample, suffix) {
+  file.path(qc_dir, "mosdepth", paste0(sample, suffix))
+}
+
+# Per contig mean depth (rows "<contig>_region" repeat the windows: dropped)
+depth_summary <- map_dfr(samples$sample, function(s) {
+  read_tsv(depth_file(s, ".mosdepth.summary.txt"), show_col_types = FALSE) |>
+    filter(!grepl("_region$", chrom)) |>
+    mutate(sample = s)
+})
+
+# Cumulative distribution: fraction of bases covered at >= depth (whole genome)
+depth_dist <- map_dfr(samples$sample, function(s) {
+  read_tsv(depth_file(s, ".mosdepth.global.dist.txt"),
+           col_names = c("chrom", "depth", "fraction"), show_col_types = FALSE) |>
+    filter(chrom == "total") |>
+    mutate(sample = s)
+})
+
+depth_windows <- map_dfr(samples$sample, function(s) {
+  read_tsv(depth_file(s, ".regions.bed.gz"),
+           col_names = c("chrom", "start", "end", "depth"), show_col_types = FALSE) |>
+    filter(chrom %in% chromosomes) |>
+    mutate(sample = s)
+})
+
+# Mean depth over the 16 chromosomes, used to normalise
+chromosome_depth <- depth_summary |>
+  filter(chrom %in% chromosomes) |>
+  group_by(sample) |>
+  summarise(mean_depth = sum(bases) / sum(length))
+
+fraction_at <- function(s, x) {
+  d <- depth_dist |> filter(sample == s, depth == x)
+  if (nrow(d) == 0) 0 else d$fraction
+}
+
+depth <- chromosome_depth |>
+  left_join(depth_summary |> filter(chrom == mitochondrion) |>
+              select(sample, mito_depth = mean), by = "sample") |>
+  mutate(
+    mito_ratio = mito_depth / mean_depth,
+    ge10x_pct = 100 * map_dbl(sample, fraction_at, 10),
+    ge20x_pct = 100 * map_dbl(sample, fraction_at, 20),
+    ge50x_pct = 100 * map_dbl(sample, fraction_at, 50),
+    ge100x_pct = 100 * map_dbl(sample, fraction_at, 100)
+  ) |>
+  select(-mito_depth)
+```
+
+```{r load-bqsr}
+# GATK recalibration report: several tables, each "#:GATKTable:<name>:",
+# a header line, whitespace separated rows, and a blank line
+read_gatk_table <- function(file, name) {
+  lines <- readLines(file)
+  start <- which(lines == paste0("#:GATKTable:", name, ":"))
+  end <- start + 1
+  while (end < length(lines) && nzchar(trimws(lines[end + 1]))) end <- end + 1
+  fields <- strsplit(trimws(lines[(start + 1):end]), "\\s+")
+  table <- as_tibble(do.call(rbind, fields[-1]), .name_repair = "minimal")
+  names(table) <- fields[[1]]
+  type_convert(table, col_types = cols())
+}
+
+# round<r>.table measures the BAM entering round r (round1 = before any
+# recalibration); final.table measures the final BAM
+bqsr_files <- map_dfr(samples$sample, function(s) {
+  files <- list.files(file.path(bqsr_dir, s), pattern = "^(round[0-9]+|final)\\.table$",
+                      full.names = TRUE)
+  tibble(sample = s, round = sub("\\.table$", "", basename(files)), file = files)
+})
+has_bqsr <- nrow(bqsr_files) > 0
+rounds <- unique(bqsr_files$round)
+round_levels <- c(sort(rounds[rounds != "final"]), intersect("final", rounds))
+bqsr_files <- mutate(bqsr_files, round = factor(round, round_levels))
+
+read_bqsr <- function(name) {
+  pmap_dfr(bqsr_files, function(sample, round, file) {
+    read_gatk_table(file, name) |> mutate(sample = sample, round = round)
+  }) |>
+    filter(EventType == "M") |>
+    rename(lane = ReadGroup)
+}
+
+bqsr_overall <- tibble(sample = character(), lane = character(), round = factor(),
+                       reported = numeric(), empirical = numeric(), difference = numeric())
+if (has_bqsr) {
+  bqsr_overall <- read_bqsr("RecalTable0") |>
+    transmute(sample, lane, round, reported = EstimatedQReported,
+              empirical = EmpiricalQuality, difference = reported - empirical)
+  bqsr_by_quality <- read_bqsr("RecalTable1")
+  bqsr_by_cycle <- read_bqsr("RecalTable2") |>
+    filter(CovariateName == "Cycle") |>
+    mutate(cycle = as.numeric(CovariateValue)) |>
+    group_by(sample, lane, round, cycle) |>
+    summarise(observations = sum(Observations), errors = sum(Errors), .groups = "drop") |>
+    mutate(
+      read = if_else(cycle > 0, "R1", "R2"),
+      cycle = abs(cycle),
+      empirical = -10 * log10((errors + 1) / (observations + 2))
+    )
+}
+```
+
+```{r load-allele-balance}
+allele_balance <- tibble(sample = character(), het_median = numeric(),
+                         het_below_0.2_pct = numeric(), n_eff = numeric())
+allele_balance_file <- function(sample, suffix) {
+  file.path(qc_dir, "allele_balance", paste0(sample, suffix))
+}
+
+if (length(drones) > 0) {
+  ab_counts <- map_dfr(drones, function(s) {
+    read_tsv(allele_balance_file(s, ".summary.tsv"), show_col_types = FALSE)
+  })
+
+  ab_sites <- map_dfr(drones, function(s) {
+    read_tsv(allele_balance_file(s, ".sites.tsv.gz"), show_col_types = FALSE) |>
+      mutate(sample = s)
+  }) |>
+    mutate(depth = ref_ad + alt_ad, fraction = alt_ad / depth)
+
+  # WARNING: to recheck before relying on it.
+  # n_eff: number of drones that would give the observed spread of the allele
+  # fraction at 0/1 sites, if it came only from drone sampling (binomial, p = 0.5)
+  # plus read sampling: var = 0.25 / n_eff + mean(0.25 / depth).
+  # Biased high because HaplotypeCaller does not call 0/1 at extreme fractions
+  # (spread truncated); biased low by reference bias and mapping artefacts (extra
+  # spread). Unequal DNA amounts between drones lower it, which is intended.
+  effective_drones <- function(fraction, depth) {
+    excess <- var(fraction) - mean(0.25 / depth)
+    if (excess > 0) 0.25 / excess else NA_real_
+}
+
+allele_balance <- ab_sites |>
+  group_by(sample) |>
+  summarise(
+    het_median = median(fraction[genotype == "het"]),
+    het_q25 = quantile(fraction[genotype == "het"], 0.25),
+    het_q75 = quantile(fraction[genotype == "het"], 0.75),
+    het_below_0.2_pct = 100 * mean(fraction[genotype == "het"] < 0.2),
+    het_above_0.8_pct = 100 * mean(fraction[genotype == "het"] > 0.8),
+    n_eff = effective_drones(fraction[genotype == "het"], depth[genotype == "het"]),
+    hom_median = median(fraction[genotype == "hom"]),
+    hom_below_0.9_pct = 100 * mean(fraction[genotype == "hom"] < 0.9)
+  )
+}
+```
+
+## Summary
+
+One row per pool. Mapping from samtools stats, depth from mosdepth (16
+chromosomes), BQSR from the check of the final BAM, allele balance for drone
+pools only.
+
+```{r summary}
+bqsr_final <- bqsr_overall |>
+  filter(round == "final") |>
+  group_by(sample) |>
+  summarise(bqsr_max_abs_difference = max(abs(difference)))
+
+samples |>
+  select(sample, type) |>
+  left_join(mapping |> select(sample, reads_M, mapped_pct, duplicates_pct), by = "sample") |>
+  left_join(depth |> select(sample, mean_depth, mito_ratio), by = "sample") |>
+  left_join(bqsr_final, by = "sample") |>
+  left_join(allele_balance |> select(sample, het_median, het_below_0.2_pct, n_eff),
+            by = "sample") |>
+  mutate(across(where(is.double), \(x) round(x, 2))) |>
+  show_table()
+```
+
+## Mapping
+
+samtools stats on the final BAM of each pool. Base qualities in this BAM are
+already recalibrated by BQSR.
+
+```{r mapping-table}
+mapping |> mutate(across(where(is.double), \(x) signif(x, 4))) |> show_table()
+```
+
+### Insert size
+
+Fraction of read pairs per insert size, one line per pool.
+
+```{r insert-size}
+map_dfr(stats, "is") |>
+  group_by(sample) |>
+  mutate(fraction = pairs / sum(pairs)) |>
+  ungroup() |>
+  filter(insert_size <= 1000) |>
+  left_join(samples, by = "sample") |>
+  ggplot(aes(insert_size, fraction, group = sample, colour = type)) +
+  geom_line(alpha = 0.4) +
+  scale_colour_manual(values = type_colours) +
+  labs(x = "Insert size (bp)", y = "Fraction of pairs", colour = NULL)
+```
+
+### Base quality along reads
+
+Mean base quality per cycle (recalibrated), one line per pool.
+
+```{r quality-per-cycle}
+map_dfr(stats, "quality") |>
+  left_join(samples, by = "sample") |>
+  ggplot(aes(cycle, mean_quality, group = sample, colour = type)) +
+  geom_line(alpha = 0.4) +
+  facet_wrap(~read) +
+  scale_colour_manual(values = type_colours) +
+  labs(x = "Cycle", y = "Mean base quality", colour = NULL)
+```
+
+## Depth
+
+mosdepth on the final BAM: reads with MAPQ >= 15, duplicates excluded. Mean
+depth over the 16 chromosomes; `mito_ratio` = mitochondrion / chromosome depth;
+`geNx_pct` = % of the whole genome covered at >= N x.
+
+```{r depth-table}
+depth |> mutate(across(where(is.double), \(x) signif(x, 4))) |> show_table()
+```
+
+### Cumulative depth
+
+Fraction of the genome covered at >= depth, up to 3 x each pool's mean depth.
+
+```{r depth-cumulative}
+depth_dist |>
+  left_join(chromosome_depth, by = "sample") |>
+  filter(depth <= 3 * mean_depth) |>
+  left_join(samples, by = "sample") |>
+  ggplot(aes(depth, fraction, group = sample, colour = type)) +
+  geom_line(alpha = 0.4) +
+  facet_wrap(~type, scales = "free_x") +
+  scale_colour_manual(values = type_colours, guide = "none") +
+  labs(x = "Depth", y = "Fraction of genome at >= depth")
+```
+
+### Depth per chromosome
+
+Mean depth of each chromosome divided by the pool's mean depth (1 = average).
+
+```{r depth-per-chromosome}
+#| fig-height: !expr max(4, 0.15 * nrow(samples))
+depth_summary |>
+  filter(chrom %in% chromosomes) |>
+  left_join(chromosome_depth, by = "sample") |>
+  mutate(relative = mean / mean_depth,
+         chromosome = factor(chromosome_labels[chrom], chromosome_labels)) |>
+  ggplot(aes(chromosome, sample, fill = relative)) +
+  geom_tile() +
+  scale_fill_gradient2(midpoint = 1, low = "#2166ac", high = "#b2182b") +
+  labs(x = "Chromosome", y = NULL, fill = "Relative\ndepth")
+```
+
+### Depth along chromosomes
+
+Mean depth in windows, divided by the pool's mean depth. Line: median over the
+pools of each type; ribbon: 25-75 % of the pools. Pools listed in `highlight`
+(setup chunk) are drawn in black.
+
+```{r depth-along-chromosomes}
+#| fig-height: 10
+windows <- depth_windows |>
+  left_join(chromosome_depth, by = "sample") |>
+  left_join(samples, by = "sample") |>
+  mutate(relative = depth / mean_depth,
+         position_Mb = (start + end) / 2e6,
+         chromosome = factor(chromosome_labels[chrom], chromosome_labels))
+
+windows |>
+  group_by(type, chromosome, position_Mb) |>
+  summarise(median = median(relative), q25 = quantile(relative, 0.25),
+            q75 = quantile(relative, 0.75), .groups = "drop") |>
+  ggplot(aes(position_Mb, median, colour = type, fill = type)) +
+  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
+  geom_line() +
+  geom_line(data = filter(windows, sample %in% highlight),
+            aes(position_Mb, relative, group = sample),
+            colour = "black", inherit.aes = FALSE) +
+  facet_wrap(~chromosome, scales = "free_x", ncol = 4) +
+  scale_x_continuous(breaks = seq(0, 30, by = 5)) +
+  scale_colour_manual(values = type_colours) +
+  scale_fill_manual(values = type_colours) +
+  coord_cartesian(ylim = c(0, 2.5)) +
+  labs(x = "Position (Mb)", y = "Relative depth", colour = NULL, fill = NULL)
+```
+
+## Base quality recalibration
+
+`round<r>` tables measure the BAM entering round r (`round1`: qualities from
+the sequencer), `final` measures the final BAM, with the last round's known
+sites. After recalibration, reported and measured (empirical) qualities should
+agree.
+
+```{r bqsr-table}
+#| eval: !expr has_bqsr
+bqsr_overall |> mutate(across(where(is.double), \(x) round(x, 2))) |> show_table()
+```
+
+
+### Measured vs reported quality
+
+One line per lane; dashed: perfect agreement. Quality bins with fewer than
+1000 bases are left out.
+
+```{r bqsr-by-quality}
+#| eval: !expr has_bqsr
+bqsr_by_quality |>
+  filter(Observations >= 1000) |>
+  ggplot(aes(QualityScore, EmpiricalQuality, group = interaction(sample, lane))) +
+  geom_abline(linetype = "dashed") +
+  geom_line(alpha = 0.3) +
+  geom_point(alpha = 0.3, size = 0.8) +
+  facet_wrap(~round) +
+  labs(x = "Reported quality", y = "Measured quality")
+```
+
+### Measured quality along reads
+
+One line per lane.
+
+```{r bqsr-by-cycle}
+#| eval: !expr has_bqsr
+#| fig-height: 7
+bqsr_by_cycle |>
+  ggplot(aes(cycle, empirical, group = interaction(sample, lane))) +
+  geom_line(alpha = 0.3) +
+  facet_grid(round ~ read) +
+  labs(x = "Cycle", y = "Measured quality")
+```
+
+## Drone pools: allele balance
+
+The drones of a pool are brothers, so every SNP is carried by 0, 1 or 2 of the
+queen's copies: expected alternate fraction around 50 % at `0/1` sites and
+around 100 % at `1/1` sites. A second peak at low fractions at `0/1` sites
+points to foreign drones (drifted, or laid by workers).
+
+```{r ab-no-drones}
+#| eval: !expr length(drones) == 0
+#| results: asis
+cat("No drone pool.")
+```
+
+Sites: SNPs called `0/1` or `1/1` in the gVCF, depth >= `min_depth` and <=
+`max_depth` (4 x the pool's median depth), random sample of at most 50,000 per
+genotype.
+
+```{r ab-counts}
+#| eval: !expr length(drones) > 0
+ab_counts |> show_table()
+```
+
+**`n_eff` is experimental, to recheck:** number of drones that would give the
+observed spread at `0/1` sites (see the comment in the code).
+
+```{r ab-table}
+#| eval: !expr length(drones) > 0
+allele_balance |> mutate(across(where(is.double), \(x) round(x, 3))) |> show_table()
+```
+
+### Alternate fraction at `0/1` sites
+
+One row per pool, bins of 2 %.
+
+```{r ab-het-heatmap}
+#| eval: !expr length(drones) > 0
+#| fig-height: !expr max(4, 0.15 * length(drones))
+ab_sites |>
+  filter(genotype == "het") |>
+  mutate(bin = pmin(floor(fraction / 0.02), 49) * 0.02 + 0.01) |>
+  count(sample, bin) |>
+  group_by(sample) |>
+  mutate(share = n / sum(n)) |>
+  ungroup() |>
+  ggplot(aes(bin, sample, fill = share)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "Alternate allele fraction", y = NULL, fill = "Share\nof sites")
+```
+
+### Alternate fraction at `1/1` sites
+
+One line per pool.
+
+```{r ab-hom}
+#| eval: !expr length(drones) > 0
+ab_sites |>
+  filter(genotype == "hom") |>
+  ggplot(aes(fraction, group = sample)) +
+  geom_density(colour = scales::alpha("black", 0.3)) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "Alternate allele fraction", y = "Density")
+```

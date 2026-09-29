@@ -1,0 +1,10 @@
+name: qc
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - samtools=1.21
+  - bcftools=1.21
+  - mosdepth=0.3.14
+  - python=3.12

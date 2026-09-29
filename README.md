@@ -66,10 +66,29 @@ snakemake --profile workflow/profiles/local           # locally, on small test d
 |---|---|
 | `bam`  | `results/bam/{sample}.bam` (recalibrated) |
 | `gvcf` | `results/gvcf/{sample}.g.vcf.gz` |
+| `qc`   | `results/qc/qc_report.html` |
 
 Also kept: `results/qc/mark_duplicates/`, `results/bqsr/{sample}/round*.table`,
 logs in `logs/{rule}/`.
 
+
+## QC report
+
+`qc` renders `workflow/report/qc_report.qmd` (Quarto + R) into
+`results/qc/qc_report.html`, from:
+
+- `samtools stats` on the final BAM: mapping, duplicates, insert size, quality
+  per cycle (recalibrated);
+- `mosdepth` on the final BAM (MAPQ >= 15, duplicates excluded): depth per
+  chromosome and in 500 kb windows;
+- BQSR tables: every round, plus a check of the final BAM (`final.table`, built
+  with the `bam` and `gvcf` targets while the known sites still exist);
+- drone pools: allele balance at SNPs called `0/1` and `1/1` in the gVCF
+  (`qc.allele_balance` in config). `n_eff` is experimental.
+
+Paths are R variables at the top of the `.qmd` (`qc_dir`, `bqsr_dir`); pools to
+draw individually go in `highlight`. To render by hand after a run:
+`quarto render workflow/report/qc_report.qmd`.
 
 ## Graphs
 

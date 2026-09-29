@@ -10,6 +10,7 @@ units: config/units.tsv       # one row per read group (pool x library x lane)
 # What `snakemake` builds by default. Available targets:
 #   bam   - recalibrated BAM per pool           results/bam/{sample}.bam
 #   gvcf  - HaplotypeCaller gVCF per pool       results/gvcf/{sample}.g.vcf.gz
+#   qc    - QC report                           results/qc/qc_report.html
 targets:
   - bam
 
@@ -38,3 +39,15 @@ bqsr:
   # Only annotates genotypes (FORMAT/FT): SelectVariants --exclude-filtered does
   # not drop genotype-filtered sites, so this has no effect on the known sites.
   genotype_filter: "GQ < 90.0"
+
+# Quality control (target `qc`: results/qc/qc_report.html)
+qc:
+  # mosdepth: reads with MAPQ >= min_mapq; mean depth in windows along chromosomes
+  mosdepth_min_mapq: 15
+  mosdepth_window: 500000
+  # Drone pools: allele balance at SNPs called 0/1 and 1/1 in the gVCF
+  allele_balance:
+    min_depth: 15
+    max_depth_ratio: 4   # drop sites deeper than 4 x the pool's median depth
+    max_sites: 50000     # random sample per genotype class (fixed seed)
+    seed: 42

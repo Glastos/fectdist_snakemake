@@ -32,4 +32,4 @@ rule haplotype_caller_gvcf:
         " --tmp-dir {resources.tmpdir} -O {output.gvcf} 2> {log}"
 
 
-TARGETS["gvcf"] = expand("results/gvcf/{sample}.g.vcf.gz", sample=SAMPLES)
+TARGETS["gvcf"] = expand("results/gvcf/{sample}.g.vcf.gz", sample=SAMPLES) + BQSR_CHECKS

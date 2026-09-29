@@ -5,3 +5,6 @@ samples: config/test/samples.tsv
 units: config/test/units.tsv
 regions:
   include: [NC_037653.1]   # smallest chromosome (7.2 Mb): keeps the test ~30 min
+qc:
+  allele_balance:
+    min_depth: 3   # test reads cover ~2x

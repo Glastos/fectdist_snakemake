@@ -1,0 +1,15 @@
+name: report
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - quarto=1.9
+  - r-base
+  - r-knitr
+  - r-rmarkdown
+  - r-dplyr
+  - r-tidyr
+  - r-readr
+  - r-purrr
+  - r-ggplot2
+  - r-dt
