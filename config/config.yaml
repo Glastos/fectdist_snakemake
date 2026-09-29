@@ -17,7 +17,7 @@ targets:
 reference:
   # The bwa-mem2 index, the .fai and the .dict must already exist next to the fasta:
   #   bwa-mem2 index ref.fa ; samtools faidx ref.fa ; gatk CreateSequenceDictionary -R ref.fa
-  fasta: resources/HAv3_1_indexes/GCF_003254395.2_Amel_HAv3.1_genomic.fna
+  fasta: resources/reference_HAv3_1/GCF_003254395.2_Amel_HAv3.1_genomic.fna
 
 # Regions used to run the bootstrap HaplotypeCaller in parallel, from the .fai:
 # one per contig >= min_contig_size, plus one for all smaller contigs

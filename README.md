@@ -43,6 +43,9 @@ tools/make_sheets.py --table ../Table_echantillons_FecDist.xlsm /path/to/fastq/*
 # or: find /path/to/fastq -name "*.fq.gz" > files.txt; tools/make_sheets.py --table ... --list files.txt
 ```
 
+Add `--skip-unknown` to leave out (with a warning) pools whose barcode is not in
+the table, instead of stopping.
+
 Read groups are `ID={sample}.{unit} SM={sample} LB={library} PL=ILLUMINA`, with
 `PU` parsed from the first read name of R1 (`{flowcell}.{lane}.{barcode}`). Only
 Illumina (Casava >= 1.8) read names are accepted. Each unit must hold a single

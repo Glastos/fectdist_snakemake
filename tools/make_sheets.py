@@ -13,6 +13,8 @@ Usage:
     tools/make_sheets.py --table ../Table_echantillons_FecDist.xlsm --list files.txt
 
 Nothing is written if any file or sample has a problem; all problems are listed.
+With --skip-unknown, pools absent from the table are left out (with a warning)
+instead of being a problem.
 """
 
 import argparse
@@ -48,6 +50,8 @@ def parse_args():
     parser.add_argument("--drone-ploidy", type=int, default=2)
     parser.add_argument("--worker-ploidy", type=int, default=50)
     parser.add_argument("--force", action="store_true", help="overwrite existing sheets")
+    parser.add_argument("--skip-unknown", action="store_true",
+                        help="leave out pools absent from the table instead of stopping")
     return parser.parse_args()
 
 
@@ -71,12 +75,23 @@ def main():
         key = (m["sample"], m["library"], m["flowcell"], m["lane"])
         if m["read"] in units[key]:
             problems.append(f"duplicate R{m['read']} for {'_'.join(key)}: {units[key][m['read']]} and {path}")
-        units[key][m["read"]] = os.path.abspath(path)
-        if not path.exists():
-            problems.append(f"file not found: {path}")
+        units[key][m["read"]] = path
+
+    table = pd.read_excel(args.table, dtype=str)
+    table = table.dropna(subset=["CB ech ADN"]).set_index("CB ech ADN")
+    unknown = sorted({key[0] for key in units} - set(table.index))
+    if args.skip_unknown:
+        units = {key: reads for key, reads in units.items() if key[0] not in unknown}
+    else:
+        for sample in unknown:
+            problems.append(f"{sample}: not in the 'CB ech ADN' column of {args.table}")
+
     for key, reads in units.items():
         for read in {"1", "2"} - set(reads):
             problems.append(f"missing R{read} for {'_'.join(key)}")
+        for path in reads.values():
+            if not path.exists():
+                problems.append(f"file not found: {path}")
     unit_names = defaultdict(list)
     for sample, library, flowcell, lane in units:
         unit_names[(sample, f"{flowcell}_{lane}")].append(library)
@@ -84,15 +99,10 @@ def main():
         if len(libraries) > 1:
             problems.append(f"{sample}: several libraries on {unit} {libraries}, unit names would clash")
 
-    table = pd.read_excel(args.table, dtype=str)
-    table = table.dropna(subset=["CB ech ADN"]).set_index("CB ech ADN")
     duplicated = set(table.index[table.index.duplicated()])
     ploidy = {"drones": args.drone_ploidy, "workers": args.worker_ploidy}
     samples = {}
-    for sample in sorted({key[0] for key in units}):
-        if sample not in table.index:
-            problems.append(f"{sample}: not in the 'CB ech ADN' column of {args.table}")
-            continue
+    for sample in sorted({key[0] for key in units} - set(unknown)):
         if sample in duplicated:
             problems.append(f"{sample}: several rows in {args.table}")
             continue
@@ -120,11 +130,15 @@ def main():
     with open(args.units, "w") as out:
         out.write("sample\tunit\tfq1\tfq2\tlibrary\n")
         for (sample, library, flowcell, lane), reads in sorted(units.items()):
-            out.write(f"{sample}\t{flowcell}_{lane}\t{reads['1']}\t{reads['2']}\t{library}\n")
+            fq1, fq2 = os.path.abspath(reads["1"]), os.path.abspath(reads["2"])
+            out.write(f"{sample}\t{flowcell}_{lane}\t{fq1}\t{fq2}\t{library}\n")
 
     types = pd.Series([t for t, _, _ in samples.values()]).value_counts().to_dict()
     print(f"{args.samples}: {len(samples)} pools {types}")
     print(f"{args.units}: {len(units)} units")
+    if args.skip_unknown and unknown:
+        print(f"Warning: {len(unknown)} pools not in {args.table}, left out: {', '.join(unknown)}",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":
