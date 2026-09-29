@@ -96,13 +96,13 @@ draw individually go in `highlight`. To render by hand after a run:
 
 ![Rule graph](docs/rulegraph.svg)
 
-Jobs of a local test (2 pools x 2 lanes, 1 chromosome, 2 BQSR rounds):
+Jobs of the local test with `gvcf` and `qc` (2 drone pools x 2 lanes, 1 chromosome, 2 BQSR rounds):
 
 ![Job graph of the local test](docs/dag_test.svg)
 
 Regenerate :
 
 ```bash
-snakemake --profile workflow/profiles/local --forceall --rulegraph | dot -Tsvg > docs/rulegraph.svg
-snakemake --profile workflow/profiles/local --forceall --dag | dot -Tsvg > docs/dag_test.svg
+snakemake --profile workflow/profiles/local --forceall --rulegraph --config 'targets=[gvcf,qc]' | dot -Tsvg > docs/rulegraph.svg
+snakemake --profile workflow/profiles/local --forceall --dag --config 'targets=[gvcf,qc]' | dot -Tsvg > docs/dag_test.svg
 ```
