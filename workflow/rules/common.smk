@@ -152,10 +152,7 @@ REGIONS = {
 
 
 def pool_ploidy(sample):
-    """HaplotypeCaller ploidy of the bootstrap calls and final gVCF (samples.tsv).
-
-    Plain int: Snakemake only records (and reruns on changes of) builtin types.
-    """
+    """HaplotypeCaller ploidy of the bootstrap calls and final gVCF (samples.tsv)."""
     return int(samples.loc[sample, "ploidy"])
 
 

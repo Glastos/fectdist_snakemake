@@ -16,10 +16,11 @@ snakemake --version
 
 # Run snakemake workflow
 # Test dry-run
-snakemake --profile workflow/profiles/slurm_default --dry-run --configfile config/test/config.yaml
+#snakemake --profile workflow/profiles/slurm_default --configfile config/test/config.yaml --dry-run
 
 # Test run
-#snakemake --profile workflow/profiles/slurm_default --configfile config/test/config.yaml
+snakemake --profile workflow/profiles/slurm_default --configfile config/test/config.yaml \
+--config 'targets=[gvcf,qc]'
 
 # Dryrun
 #snakemake --profile workflow/profiles/slurm_default 

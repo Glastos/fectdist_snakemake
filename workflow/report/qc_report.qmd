@@ -23,30 +23,14 @@ library(DT)
 theme_set(theme_bw())
 type_colours <- c(drones = "#1b9e77", workers = "#d95f02")
 
-# Project root: the folder holding workflow/Snakefile, searched upwards from the
-# current folder (results/qc/ when rendered by the pipeline, workflow/report/
-# when opened by hand)
-find_root <- function(dir = getwd()) {
-  while (!file.exists(file.path(dir, "workflow", "Snakefile"))) {
-    parent <- dirname(dir)
-    if (parent == dir) stop("Project root (folder with workflow/Snakefile) not found")
-    dir <- parent
-  }
-  dir
-}
-root <- find_root()
-
-# Paths
-qc_dir <- file.path(root, "results", "qc")
-bqsr_dir <- file.path(root, "results", "bqsr")
+# Paths, relative to results/qc/ where the pipeline renders a copy of this file
+qc_dir <- "."
+bqsr_dir <- file.path("..", "bqsr")
 
 # Amel_HAv3.1: the 16 chromosomes (labelled 1-16) and the mitochondrion
 chromosomes <- sprintf("NC_0376%02d.1", 38:53)
 chromosome_labels <- setNames(as.character(1:16), chromosomes)
 mitochondrion <- "NC_001566.1"
-
-# Pools drawn individually in the depth-along-chromosomes plot, e.g. c("GPS263943")
-highlight <- character(0)
 
 # Thresholds to flag pools: none yet
 
@@ -108,27 +92,24 @@ mapping <- map_dfr(stats, "sn") |>
 ```
 
 ```{r load-mosdepth}
-depth_file <- function(sample, suffix) {
-  file.path(qc_dir, "mosdepth", paste0(sample, suffix))
-}
-
 # Per contig mean depth (rows "<contig>_region" repeat the windows: dropped)
 depth_summary <- map_dfr(samples$sample, function(s) {
-  read_tsv(depth_file(s, ".mosdepth.summary.txt"), show_col_types = FALSE) |>
+  read_tsv(file.path(qc_dir, "mosdepth", paste0(s, ".mosdepth.summary.txt")),
+           show_col_types = FALSE) |>
     filter(!grepl("_region$", chrom)) |>
     mutate(sample = s)
 })
 
 # Cumulative distribution: fraction of bases covered at >= depth (whole genome)
 depth_dist <- map_dfr(samples$sample, function(s) {
-  read_tsv(depth_file(s, ".mosdepth.global.dist.txt"),
+  read_tsv(file.path(qc_dir, "mosdepth", paste0(s, ".mosdepth.global.dist.txt")),
            col_names = c("chrom", "depth", "fraction"), show_col_types = FALSE) |>
     filter(chrom == "total") |>
     mutate(sample = s)
 })
 
 depth_windows <- map_dfr(samples$sample, function(s) {
-  read_tsv(depth_file(s, ".regions.bed.gz"),
+  read_tsv(file.path(qc_dir, "mosdepth", paste0(s, ".regions.bed.gz")),
            col_names = c("chrom", "start", "end", "depth"), show_col_types = FALSE) |>
     filter(chrom %in% chromosomes) |>
     mutate(sample = s)
@@ -214,67 +195,46 @@ if (has_bqsr) {
 
 ```{r load-allele-balance}
 allele_balance <- tibble(sample = character(), het_median = numeric(),
-                         het_below_0.2_pct = numeric(), n_eff = numeric())
-allele_balance_file <- function(sample, suffix) {
-  file.path(qc_dir, "allele_balance", paste0(sample, suffix))
-}
+                         het_below_0.2_pct = numeric())
 
 if (length(drones) > 0) {
   ab_counts <- map_dfr(drones, function(s) {
-    read_tsv(allele_balance_file(s, ".summary.tsv"), show_col_types = FALSE)
+    read_tsv(file.path(qc_dir, "allele_balance", paste0(s, ".summary.tsv")),
+             show_col_types = FALSE)
   })
 
   ab_sites <- map_dfr(drones, function(s) {
-    read_tsv(allele_balance_file(s, ".sites.tsv.gz"), show_col_types = FALSE) |>
+    read_tsv(file.path(qc_dir, "allele_balance", paste0(s, ".sites.tsv.gz")),
+             show_col_types = FALSE) |>
       mutate(sample = s)
   }) |>
     mutate(depth = ref_ad + alt_ad, fraction = alt_ad / depth)
 
-  # WARNING: to recheck before relying on it.
-  # n_eff: number of drones that would give the observed spread of the allele
-  # fraction at 0/1 sites, if it came only from drone sampling (binomial, p = 0.5)
-  # plus read sampling: var = 0.25 / n_eff + mean(0.25 / depth).
-  # Biased high because HaplotypeCaller does not call 0/1 at extreme fractions
-  # (spread truncated); biased low by reference bias and mapping artefacts (extra
-  # spread). Unequal DNA amounts between drones lower it, which is intended.
-  effective_drones <- function(fraction, depth) {
-    excess <- var(fraction) - mean(0.25 / depth)
-    if (excess > 0) 0.25 / excess else NA_real_
-}
-
-allele_balance <- ab_sites |>
-  group_by(sample) |>
-  summarise(
-    het_median = median(fraction[genotype == "het"]),
-    het_q25 = quantile(fraction[genotype == "het"], 0.25),
-    het_q75 = quantile(fraction[genotype == "het"], 0.75),
-    het_below_0.2_pct = 100 * mean(fraction[genotype == "het"] < 0.2),
-    het_above_0.8_pct = 100 * mean(fraction[genotype == "het"] > 0.8),
-    n_eff = effective_drones(fraction[genotype == "het"], depth[genotype == "het"]),
-    hom_median = median(fraction[genotype == "hom"]),
-    hom_below_0.9_pct = 100 * mean(fraction[genotype == "hom"] < 0.9)
-  )
+  allele_balance <- ab_sites |>
+    group_by(sample) |>
+    summarise(
+      het_median = median(fraction[genotype == "het"]),
+      het_q25 = quantile(fraction[genotype == "het"], 0.25),
+      het_q75 = quantile(fraction[genotype == "het"], 0.75),
+      het_below_0.2_pct = 100 * mean(fraction[genotype == "het"] < 0.2),
+      het_above_0.8_pct = 100 * mean(fraction[genotype == "het"] > 0.8),
+      hom_median = median(fraction[genotype == "hom"]),
+      hom_below_0.9_pct = 100 * mean(fraction[genotype == "hom"] < 0.9)
+    )
 }
 ```
 
 ## Summary
 
-One row per pool. Mapping from samtools stats, depth from mosdepth (16
-chromosomes), BQSR from the check of the final BAM, allele balance for drone
-pools only.
+One row per pool. Mapping from samtools stats, depth from mosdepth (over the 16
+chromosomes), allele balance for drone pools only.
 
 ```{r summary}
-bqsr_final <- bqsr_overall |>
-  filter(round == "final") |>
-  group_by(sample) |>
-  summarise(bqsr_max_abs_difference = max(abs(difference)))
-
 samples |>
   select(sample, type) |>
   left_join(mapping |> select(sample, reads_M, mapped_pct, duplicates_pct), by = "sample") |>
   left_join(depth |> select(sample, mean_depth, mito_ratio), by = "sample") |>
-  left_join(bqsr_final, by = "sample") |>
-  left_join(allele_balance |> select(sample, het_median, het_below_0.2_pct, n_eff),
+  left_join(allele_balance |> select(sample, het_median, het_below_0.2_pct),
             by = "sample") |>
   mutate(across(where(is.double), \(x) round(x, 2))) |>
   show_table()
@@ -366,28 +326,22 @@ depth_summary |>
 ### Depth along chromosomes
 
 Mean depth in windows, divided by the pool's mean depth. Line: median over the
-pools of each type; ribbon: 25-75 % of the pools. Pools listed in `highlight`
-(setup chunk) are drawn in black.
+pools of each type; ribbon: 25-75 % of the pools.
 
 ```{r depth-along-chromosomes}
 #| fig-height: 10
-windows <- depth_windows |>
+depth_windows |>
   left_join(chromosome_depth, by = "sample") |>
   left_join(samples, by = "sample") |>
   mutate(relative = depth / mean_depth,
          position_Mb = (start + end) / 2e6,
-         chromosome = factor(chromosome_labels[chrom], chromosome_labels))
-
-windows |>
+         chromosome = factor(chromosome_labels[chrom], chromosome_labels)) |>
   group_by(type, chromosome, position_Mb) |>
   summarise(median = median(relative), q25 = quantile(relative, 0.25),
             q75 = quantile(relative, 0.75), .groups = "drop") |>
   ggplot(aes(position_Mb, median, colour = type, fill = type)) +
   geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
   geom_line() +
-  geom_line(data = filter(windows, sample %in% highlight),
-            aes(position_Mb, relative, group = sample),
-            colour = "black", inherit.aes = FALSE) +
   facet_wrap(~chromosome, scales = "free_x", ncol = 4) +
   scale_x_continuous(breaks = seq(0, 30, by = 5)) +
   scale_colour_manual(values = type_colours) +
@@ -445,25 +399,17 @@ bqsr_by_cycle |>
 The drones of a pool are brothers, so every SNP is carried by 0, 1 or 2 of the
 queen's copies: expected alternate fraction around 50 % at `0/1` sites and
 around 100 % at `1/1` sites. A second peak at low fractions at `0/1` sites
-points to foreign drones (drifted, or laid by workers).
+points to foreign drones.
 
-```{r ab-no-drones}
-#| eval: !expr length(drones) == 0
-#| results: asis
-cat("No drone pool.")
-```
 
 Sites: SNPs called `0/1` or `1/1` in the gVCF, depth >= `min_depth` and <=
-`max_depth` (4 x the pool's median depth), random sample of at most 50,000 per
+`max_depth` (4 x the pool's median depth), random sample of at most 50,000 SNPs per
 genotype.
 
 ```{r ab-counts}
 #| eval: !expr length(drones) > 0
 ab_counts |> show_table()
 ```
-
-**`n_eff` is experimental, to recheck:** number of drones that would give the
-observed spread at `0/1` sites (see the comment in the code).
 
 ```{r ab-table}
 #| eval: !expr length(drones) > 0
