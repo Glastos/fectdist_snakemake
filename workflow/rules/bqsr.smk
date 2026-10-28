@@ -13,10 +13,10 @@ rule bootstrap_call:
         ref=REF,
         fai=REF_FAI,
         dict=REF_DICT,
-        bed="results/regions/{region}.bed",
+        bed="results/all/regions/{region}.bed",
     output:
-        vcf=temp("results/bqsr/{sample}/round{round}/{region}.vcf.gz"),
-        tbi=temp("results/bqsr/{sample}/round{round}/{region}.vcf.gz.tbi"),
+        vcf=temp("results/{sample}/bqsr/round{round}/{region}.vcf.gz"),
+        tbi=temp("results/{sample}/bqsr/round{round}/{region}.vcf.gz.tbi"),
     params:
         java=java_opts,
         ploidy=lambda wildcards: pool_ploidy(wildcards.sample),
@@ -37,18 +37,18 @@ rule bootstrap_call:
 
 rule bootstrap_filter:
     input:
-        vcf="results/bqsr/{sample}/round{round}/{region}.vcf.gz",
-        tbi="results/bqsr/{sample}/round{round}/{region}.vcf.gz.tbi",
+        vcf="results/{sample}/bqsr/round{round}/{region}.vcf.gz",
+        tbi="results/{sample}/bqsr/round{round}/{region}.vcf.gz.tbi",
         ref=REF,
         fai=REF_FAI,
         dict=REF_DICT,
     output:
-        flagged=temp("results/bqsr/{sample}/round{round}/{region}.flagged.vcf.gz"),
+        flagged=temp("results/{sample}/bqsr/round{round}/{region}.flagged.vcf.gz"),
         flagged_tbi=temp(
-            "results/bqsr/{sample}/round{round}/{region}.flagged.vcf.gz.tbi"
+            "results/{sample}/bqsr/round{round}/{region}.flagged.vcf.gz.tbi"
         ),
-        vcf=temp("results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz"),
-        tbi=temp("results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz.tbi"),
+        vcf=temp("results/{sample}/bqsr/round{round}/{region}.pass.vcf.gz"),
+        tbi=temp("results/{sample}/bqsr/round{round}/{region}.pass.vcf.gz.tbi"),
     params:
         java=java_opts,
         site_filter=config["bqsr"]["site_filter"],
@@ -76,13 +76,13 @@ rule base_recalibrator:
     input:
         unpack(round_input),
         known=lambda wildcards: expand(
-            "results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz",
+            "results/{sample}/bqsr/round{round}/{region}.pass.vcf.gz",
             sample=wildcards.sample,
             round=wildcards.round,
             region=REGIONS,
         ),
         known_tbi=lambda wildcards: expand(
-            "results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz.tbi",
+            "results/{sample}/bqsr/round{round}/{region}.pass.vcf.gz.tbi",
             sample=wildcards.sample,
             round=wildcards.round,
             region=REGIONS,
@@ -90,9 +90,9 @@ rule base_recalibrator:
         ref=REF,
         fai=REF_FAI,
         dict=REF_DICT,
-        bed="results/regions/all.bed",
+        bed="results/all/regions/all.bed",
     output:
-        "results/bqsr/{sample}/round{round}.table",
+        "results/{sample}/bqsr/round{round}.table",
     params:
         java=java_opts,
         known=lambda wildcards, input: " ".join(
@@ -115,13 +115,13 @@ rule base_recalibrator:
 rule apply_bqsr:
     input:
         unpack(round_input),
-        table="results/bqsr/{sample}/round{round}.table",
+        table="results/{sample}/bqsr/round{round}.table",
         ref=REF,
         fai=REF_FAI,
         dict=REF_DICT,
     output:
-        bam=temp("results/bqsr/{sample}/round{round}.recal.bam"),
-        bai=temp("results/bqsr/{sample}/round{round}.recal.bai"),
+        bam=temp("results/{sample}/bqsr/round{round}.recal.bam"),
+        bai=temp("results/{sample}/bqsr/round{round}.recal.bai"),
     params:
         java=java_opts,
     log:
@@ -140,16 +140,16 @@ rule apply_bqsr:
 # QC only, never applied: measures the final BAM with the last round's known sites
 rule bqsr_final_check:
     input:
-        bam="results/bam/{sample}.bam",
-        bai="results/bam/{sample}.bai",
+        bam="results/{sample}/{sample}.bam",
+        bai="results/{sample}/{sample}.bai",
         known=lambda wildcards: expand(
-            "results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz",
+            "results/{sample}/bqsr/round{round}/{region}.pass.vcf.gz",
             sample=wildcards.sample,
             round=ROUNDS,
             region=REGIONS,
         ),
         known_tbi=lambda wildcards: expand(
-            "results/bqsr/{sample}/round{round}/{region}.pass.vcf.gz.tbi",
+            "results/{sample}/bqsr/round{round}/{region}.pass.vcf.gz.tbi",
             sample=wildcards.sample,
             round=ROUNDS,
             region=REGIONS,
@@ -157,9 +157,9 @@ rule bqsr_final_check:
         ref=REF,
         fai=REF_FAI,
         dict=REF_DICT,
-        bed="results/regions/all.bed",
+        bed="results/all/regions/all.bed",
     output:
-        "results/bqsr/{sample}/final.table",
+        "results/{sample}/bqsr/final.table",
     params:
         java=java_opts,
         known=lambda wildcards, input: " ".join(
@@ -183,8 +183,8 @@ rule final_bam:
     input:
         unpack(lambda wildcards: bam_after_round(wildcards.sample, ROUNDS)),
     output:
-        bam="results/bam/{sample}.bam",
-        bai="results/bam/{sample}.bai",
+        bam="results/{sample}/{sample}.bam",
+        bai="results/{sample}/{sample}.bai",
     shell:
         "ln -f {input.bam} {output.bam} && ln -f {input.bai} {output.bai}"
 
@@ -192,6 +192,6 @@ rule final_bam:
 # Built with the BAMs, while the last round's known sites (temporary) still exist
 BQSR_CHECKS = []
 if ROUNDS > 0:
-    BQSR_CHECKS = expand("results/bqsr/{sample}/final.table", sample=SAMPLES)
+    BQSR_CHECKS = expand("results/{sample}/bqsr/final.table", sample=SAMPLES)
 
-TARGETS["bam"] = expand("results/bam/{sample}.bam", sample=SAMPLES) + BQSR_CHECKS
+TARGETS["bam"] = expand("results/{sample}/{sample}.bam", sample=SAMPLES) + BQSR_CHECKS

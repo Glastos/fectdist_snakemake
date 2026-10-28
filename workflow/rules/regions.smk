@@ -5,7 +5,7 @@
 
 rule region_bed:
     output:
-        "results/regions/{region}.bed",
+        "results/all/regions/{region}.bed",
     params:
         intervals=lambda wildcards: REGIONS[wildcards.region],
     run:
@@ -16,7 +16,7 @@ rule region_bed:
 
 rule all_regions_bed:
     output:
-        "results/regions/all.bed",
+        "results/all/regions/all.bed",
     params:
         intervals=[interval for region in REGIONS.values() for interval in region],
     run:

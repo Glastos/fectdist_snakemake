@@ -23,9 +23,10 @@ library(DT)
 theme_set(theme_bw())
 type_colours <- c(drones = "#1b9e77", workers = "#d95f02")
 
-# Paths, relative to results/qc/ where the pipeline renders a copy of this file
+# Paths, relative to results/all/qc/ where the pipeline renders a copy of this file
 qc_dir <- "."
-bqsr_dir <- file.path("..", "bqsr")
+results_dir <- file.path("..", "..")
+sample_file <- function(sample, ...) file.path(results_dir, sample, ...)
 
 # Amel_HAv3.1: the 16 chromosomes (labelled 1-16) and the mitochondrion
 chromosomes <- sprintf("NC_0376%02d.1", 38:53)
@@ -59,7 +60,7 @@ mean_quality_per_cycle <- function(fields, read) {
 }
 
 read_samtools_stats <- function(sample) {
-  lines <- readLines(file.path(qc_dir, "samtools_stats", paste0(sample, ".stats")))
+  lines <- readLines(sample_file(sample, "qc", paste0(sample, ".samtools.stats")))
   list(
     sn = map_dfr(stats_lines(lines, "SN"), function(f) {
       tibble(key = sub(":$", "", f[2]), value = as.numeric(f[3]))
@@ -94,7 +95,7 @@ mapping <- map_dfr(stats, "sn") |>
 ```{r load-mosdepth}
 # Per contig mean depth (rows "<contig>_region" repeat the windows: dropped)
 depth_summary <- map_dfr(samples$sample, function(s) {
-  read_tsv(file.path(qc_dir, "mosdepth", paste0(s, ".mosdepth.summary.txt")),
+  read_tsv(sample_file(s, "qc", paste0(s, ".mosdepth.summary.txt")),
            show_col_types = FALSE) |>
     filter(!grepl("_region$", chrom)) |>
     mutate(sample = s)
@@ -102,14 +103,14 @@ depth_summary <- map_dfr(samples$sample, function(s) {
 
 # Cumulative distribution: fraction of bases covered at >= depth (whole genome)
 depth_dist <- map_dfr(samples$sample, function(s) {
-  read_tsv(file.path(qc_dir, "mosdepth", paste0(s, ".mosdepth.global.dist.txt")),
+  read_tsv(sample_file(s, "qc", paste0(s, ".mosdepth.global.dist.txt")),
            col_names = c("chrom", "depth", "fraction"), show_col_types = FALSE) |>
     filter(chrom == "total") |>
     mutate(sample = s)
 })
 
 depth_windows <- map_dfr(samples$sample, function(s) {
-  read_tsv(file.path(qc_dir, "mosdepth", paste0(s, ".regions.bed.gz")),
+  read_tsv(sample_file(s, "qc", paste0(s, ".regions.bed.gz")),
            col_names = c("chrom", "start", "end", "depth"), show_col_types = FALSE) |>
     filter(chrom %in% chromosomes) |>
     mutate(sample = s)
@@ -156,7 +157,7 @@ read_gatk_table <- function(file, name) {
 # round<r>.table measures the BAM entering round r (round1 = before any
 # recalibration); final.table measures the final BAM
 bqsr_files <- map_dfr(samples$sample, function(s) {
-  files <- list.files(file.path(bqsr_dir, s), pattern = "^(round[0-9]+|final)\\.table$",
+  files <- list.files(sample_file(s, "bqsr"), pattern = "^(round[0-9]+|final)\\.table$",
                       full.names = TRUE)
   tibble(sample = s, round = sub("\\.table$", "", basename(files)), file = files)
 })
@@ -199,12 +200,12 @@ allele_balance <- tibble(sample = character(), het_median = numeric(),
 
 if (length(drones) > 0) {
   ab_counts <- map_dfr(drones, function(s) {
-    read_tsv(file.path(qc_dir, "allele_balance", paste0(s, ".summary.tsv")),
+    read_tsv(sample_file(s, "qc", paste0(s, ".allele_balance.summary.tsv")),
              show_col_types = FALSE)
   })
 
   ab_sites <- map_dfr(drones, function(s) {
-    read_tsv(file.path(qc_dir, "allele_balance", paste0(s, ".sites.tsv.gz")),
+    read_tsv(sample_file(s, "qc", paste0(s, ".allele_balance.sites.tsv.gz")),
              show_col_types = FALSE) |>
       mutate(sample = s)
   }) |>

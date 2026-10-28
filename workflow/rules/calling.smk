@@ -5,15 +5,15 @@
 
 rule haplotype_caller_gvcf:
     input:
-        bam="results/bam/{sample}.bam",
-        bai="results/bam/{sample}.bai",
+        bam="results/{sample}/{sample}.bam",
+        bai="results/{sample}/{sample}.bai",
         ref=REF,
         fai=REF_FAI,
         dict=REF_DICT,
-        bed="results/regions/all.bed",
+        bed="results/all/regions/all.bed",
     output:
-        gvcf="results/gvcf/{sample}.g.vcf.gz",
-        tbi="results/gvcf/{sample}.g.vcf.gz.tbi",
+        gvcf="results/{sample}/{sample}.g.vcf.gz",
+        tbi="results/{sample}/{sample}.g.vcf.gz.tbi",
     params:
         java=java_opts,
         ploidy=lambda wildcards: pool_ploidy(wildcards.sample),
@@ -32,4 +32,4 @@ rule haplotype_caller_gvcf:
         " --tmp-dir {resources.tmpdir} -O {output.gvcf} 2> {log}"
 
 
-TARGETS["gvcf"] = expand("results/gvcf/{sample}.g.vcf.gz", sample=SAMPLES) + BQSR_CHECKS
+TARGETS["gvcf"] = expand("results/{sample}/{sample}.g.vcf.gz", sample=SAMPLES) + BQSR_CHECKS

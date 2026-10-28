@@ -51,7 +51,7 @@ Read groups are `ID={sample}.{unit} SM={sample} LB={library} PL=ILLUMINA`, with
 Illumina (Casava >= 1.8) read names are accepted. Each unit must hold a single
 lane; check with
 `zcat R1.fastq.gz | awk 'NR%4==1' | cut -d: -f3,4 | sort | uniq -c` (one line).
-Resulting read groups: `results/mapping/{sample}/{unit}.rg.txt`.
+Resulting read groups: `results/{sample}/mapping/{unit}.rg.txt`.
 
 ## Run
 
@@ -65,20 +65,35 @@ snakemake --profile workflow/profiles/local           # locally, on small test d
 
 ## Outputs
 
+One folder per pool, `results/{sample}/`, and `results/all/` for what spans all
+pools (a sample cannot be named `all`):
+
+```
+results/
+  {sample}/
+    {sample}.bam, {sample}.g.vcf.gz   final recalibrated BAM, gVCF
+    mapping/                          read groups ({unit}.rg.txt)
+    bqsr/                             round*.table, final.table
+    qc/                               {sample}.mark_duplicates.metrics.txt, .samtools.stats,
+                                      .mosdepth.*, .regions.bed.gz, .allele_balance.*
+  all/
+    regions/                          BED of the calling regions
+    qc/                               samples.tsv, qc_report.html
+```
+
 | target (`targets` in config) | files |
 |---|---|
-| `bam`  | `results/bam/{sample}.bam` (recalibrated) |
-| `gvcf` | `results/gvcf/{sample}.g.vcf.gz` |
-| `qc`   | `results/qc/qc_report.html` |
+| `bam`  | `results/{sample}/{sample}.bam` (recalibrated) |
+| `gvcf` | `results/{sample}/{sample}.g.vcf.gz` |
+| `qc`   | `results/all/qc/qc_report.html` |
 
-Also kept: `results/qc/mark_duplicates/`, `results/bqsr/{sample}/round*.table`,
-logs in `logs/{rule}/`.
+Logs are in `logs/{rule}/`.
 
 
 ## QC report
 
 `qc` renders `workflow/report/qc_report.qmd` (Quarto + R) into
-`results/qc/qc_report.html`, from:
+`results/all/qc/qc_report.html`, from:
 
 - `samtools stats` on the final BAM: mapping, duplicates, insert size, quality
   per cycle (recalibrated);
@@ -89,10 +104,10 @@ logs in `logs/{rule}/`.
 - drone pools: allele balance at SNPs called `0/1` and `1/1` in the gVCF
   (`qc.allele_balance` in config).
 
-Paths are R variables at the top of the `.qmd` (`qc_dir`, `bqsr_dir`), relative
-to `results/qc/` where the pipeline renders a copy. To render by hand after a
-run: `cp workflow/report/qc_report.qmd results/qc/ && quarto render
-results/qc/qc_report.qmd`.
+Paths are R variables at the top of the `.qmd` (`qc_dir`, `results_dir`),
+relative to `results/all/qc/` where the pipeline renders a copy. To render by
+hand after a run: `cp workflow/report/qc_report.qmd results/all/qc/ && quarto
+render results/all/qc/qc_report.qmd`.
 
 ## Graphs
 

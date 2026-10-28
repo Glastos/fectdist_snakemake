@@ -11,7 +11,7 @@ rule read_group:
     input:
         lambda wildcards: get_unit(wildcards)["fq1"],
     output:
-        "results/mapping/{sample}/{unit}.rg.txt",
+        "results/{sample}/mapping/{unit}.rg.txt",
     params:
         library=lambda wildcards: get_unit(wildcards)["library"],
     log:
@@ -24,11 +24,11 @@ rule bwa_mem:
     input:
         fq1=lambda wildcards: get_unit(wildcards)["fq1"],
         fq2=lambda wildcards: get_unit(wildcards)["fq2"],
-        rg="results/mapping/{sample}/{unit}.rg.txt",
+        rg="results/{sample}/mapping/{unit}.rg.txt",
         ref=REF,
         idx=REF_BWA,
     output:
-        temp("results/mapping/{sample}/{unit}.sorted.bam"),
+        temp("results/{sample}/mapping/{unit}.sorted.bam"),
     log:
         "logs/bwa_mem/{sample}/{unit}.log",
     threads: 8
@@ -45,14 +45,14 @@ rule bwa_mem:
 rule mark_duplicates:
     input:
         lambda wildcards: expand(
-            "results/mapping/{sample}/{unit}.sorted.bam",
+            "results/{sample}/mapping/{unit}.sorted.bam",
             sample=wildcards.sample,
             unit=sample_units(wildcards.sample),
         ),
     output:
-        bam=temp("results/mapping/{sample}.dedup.bam"),
-        bai=temp("results/mapping/{sample}.dedup.bai"),
-        metrics="results/qc/mark_duplicates/{sample}.metrics.txt",
+        bam=temp("results/{sample}/mapping/dedup.bam"),
+        bai=temp("results/{sample}/mapping/dedup.bai"),
+        metrics="results/{sample}/qc/{sample}.mark_duplicates.metrics.txt",
     params:
         java=java_opts,
         inputs=lambda wildcards, input: " ".join(f"-I {bam}" for bam in input),

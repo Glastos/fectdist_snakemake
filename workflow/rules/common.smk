@@ -34,6 +34,8 @@ units["library"] = units["library"].where(units["library"] != "", units["sample"
 bad_names = [n for n in [*samples["sample"], *units["unit"]] if not SAFE_NAME.match(n)]
 if bad_names:
     raise WorkflowError(f"Sample/unit names may only use A-Z a-z 0-9 . _ -: {bad_names}")
+if "all" in set(samples["sample"]):
+    raise WorkflowError(f"{config['samples']}: 'all' is reserved (results/all/)")
 if samples["sample"].duplicated().any():
     raise WorkflowError(f"{config['samples']}: duplicated samples")
 if units.duplicated(["sample", "unit"]).any():
@@ -164,9 +166,9 @@ def java_opts(wildcards, resources):
 def bam_after_round(sample, r):
     """BAM after BQSR round r (round 0 = duplicate-marked BAM)."""
     if r == 0:
-        prefix = f"results/mapping/{sample}.dedup"
+        prefix = f"results/{sample}/mapping/dedup"
     else:
-        prefix = f"results/bqsr/{sample}/round{r}.recal"
+        prefix = f"results/{sample}/bqsr/round{r}.recal"
     return {"bam": f"{prefix}.bam", "bai": f"{prefix}.bai"}
 
 

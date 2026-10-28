@@ -8,9 +8,9 @@ samples: config/samples_drones.tsv   # one row per pool
 units: config/units_drones.tsv       # one row per read group (pool x library x lane)
 
 # What `snakemake` builds by default. Available targets:
-#   bam   - recalibrated BAM per pool           results/bam/{sample}.bam
-#   gvcf  - HaplotypeCaller gVCF per pool       results/gvcf/{sample}.g.vcf.gz
-#   qc    - QC report                           results/qc/qc_report.html
+#   bam   - recalibrated BAM per pool           results/{sample}/{sample}.bam
+#   gvcf  - HaplotypeCaller gVCF per pool       results/{sample}/{sample}.g.vcf.gz
+#   qc    - QC report                           results/all/qc/qc_report.html
 targets:
   - bam
 
@@ -40,7 +40,7 @@ bqsr:
   # not drop genotype-filtered sites, so this has no effect on the known sites.
   genotype_filter: "GQ < 90.0"
 
-# Quality control (target `qc`: results/qc/qc_report.html)
+# Quality control (target `qc`: results/all/qc/qc_report.html)
 qc:
   # mosdepth: reads with MAPQ >= min_mapq; mean depth in windows along chromosomes
   mosdepth_min_mapq: 15
