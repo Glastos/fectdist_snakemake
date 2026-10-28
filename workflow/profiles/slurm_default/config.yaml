@@ -6,7 +6,7 @@
 executor: slurm
 
 # Limit concurrent jobs on the cluster
-jobs: 10
+jobs: 20
 
 # Retry failed jobs once (transient I/O errors on scratch filesystems)
 retries: 1
