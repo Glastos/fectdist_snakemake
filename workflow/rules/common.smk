@@ -11,58 +11,53 @@ SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 # ------------------------------------------------------------------------------
-# Sample sheets
+# Sample sheet: one row per read group (unit), the pool columns repeated on
+# every row of the pool
 # ------------------------------------------------------------------------------
 
+SHEET = config["samples"]
+POOL_COLUMNS = ["type", "ploidy"]
 
-def read_sheet(path, required):
-    sheet = pd.read_csv(path, sep="\t", dtype=str, comment="#").fillna("")
-    missing = set(required) - set(sheet.columns)
-    if missing:
-        raise WorkflowError(f"{path}: missing column(s) {sorted(missing)}")
-    return sheet
-
-
-samples = read_sheet(config["samples"], ["sample", "type", "ploidy"])
-units = read_sheet(config["units"], ["sample", "unit", "fq1", "fq2"])
+units = pd.read_csv(SHEET, sep="\t", dtype=str, comment="#").fillna("")
+_missing = {"sample", "unit", "fq1", "fq2", *POOL_COLUMNS} - set(units.columns)
+if _missing:
+    raise WorkflowError(f"{SHEET}: missing column(s) {sorted(_missing)}")
 
 # One library per pool unless stated otherwise
 if "library" not in units:
     units["library"] = ""
 units["library"] = units["library"].where(units["library"] != "", units["sample"])
 
-bad_names = [n for n in [*samples["sample"], *units["unit"]] if not SAFE_NAME.match(n)]
+bad_names = [n for n in [*units["sample"], *units["unit"]] if not SAFE_NAME.match(n)]
 if bad_names:
     raise WorkflowError(f"Sample/unit names may only use A-Z a-z 0-9 . _ -: {bad_names}")
-if "all" in set(samples["sample"]):
-    raise WorkflowError(f"{config['samples']}: 'all' is reserved (results/all/)")
-if samples["sample"].duplicated().any():
-    raise WorkflowError(f"{config['samples']}: duplicated samples")
+if "all" in set(units["sample"]):
+    raise WorkflowError(f"{SHEET}: 'all' is reserved (results/all/)")
 if units.duplicated(["sample", "unit"]).any():
-    raise WorkflowError(f"{config['units']}: duplicated (sample, unit) pairs")
-if not set(units["sample"]) <= set(samples["sample"]):
-    raise WorkflowError(
-        f"{config['units']}: samples absent from {config['samples']}: "
-        f"{sorted(set(units['sample']) - set(samples['sample']))}"
-    )
-if not set(samples["sample"]) <= set(units["sample"]):
-    raise WorkflowError(
-        f"{config['samples']}: samples without any unit: "
-        f"{sorted(set(samples['sample']) - set(units['sample']))}"
-    )
+    raise WorkflowError(f"{SHEET}: duplicated (sample, unit) pairs")
 
 # No effect on the pipeline yet, kept for downstream steps
 POOL_TYPES = {"drones", "workers"}
-if not set(samples["type"]) <= POOL_TYPES:
+if not set(units["type"]) <= POOL_TYPES:
     raise WorkflowError(
-        f"{config['samples']}: unknown type(s) {sorted(set(samples['type']) - POOL_TYPES)}, "
+        f"{SHEET}: unknown type(s) {sorted(set(units['type']) - POOL_TYPES)}, "
         f"expected one of {sorted(POOL_TYPES)}"
     )
-if not samples["ploidy"].str.fullmatch(r"[1-9]\d*").all():
-    raise WorkflowError(f"{config['samples']}: ploidy must be a positive integer")
+if not units["ploidy"].str.fullmatch(r"[1-9]\d*").all():
+    raise WorkflowError(f"{SHEET}: ploidy must be a positive integer")
 
-samples["ploidy"] = samples["ploidy"].astype(int)
-samples = samples.set_index("sample", drop=False)
+_values = units.groupby("sample")[POOL_COLUMNS].nunique()
+_differ = _values.index[(_values > 1).any(axis=1)].tolist()
+if _differ:
+    raise WorkflowError(
+        f"{SHEET}: {' or '.join(POOL_COLUMNS)} differ between the rows of {_differ}"
+    )
+
+units["ploidy"] = units["ploidy"].astype(int)
+samples = (
+    units.drop_duplicates("sample")[["sample", *POOL_COLUMNS]]
+    .set_index("sample", drop=False)
+)
 units = units.set_index(["sample", "unit"], drop=False)
 
 SAMPLES = samples.index.tolist()

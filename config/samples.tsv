@@ -1,3 +1,4 @@
-sample	type	ploidy
-BB2D	drones	2
-BB2W	workers	50
+sample	type	ploidy	unit	fq1	fq2	library
+BB2D	drones	2	CGATGT_L003	data/BB2D_CGATGT_L003_R1.fastq.gz	data/BB2D_CGATGT_L003_R2.fastq.gz	
+BB2W	workers	50	ACAGTG_L003	data/BB2W_ACAGTG_L003_R1.fastq.gz	data/BB2W_ACAGTG_L003_R2.fastq.gz	
+BB2W	workers	50	ACAGTG_L004	data/BB2W_ACAGTG_L004_R1.fastq.gz	data/BB2W_ACAGTG_L004_R2.fastq.gz	

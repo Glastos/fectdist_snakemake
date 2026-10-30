@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Write config/samples.tsv and config/units.tsv from FASTQ file names.
+"""Write the sample sheet config/samples.tsv from FASTQ file names.
 
 FASTQ names must follow the provider's pattern:
     {DNA barcode}_{library}_{flowcell}_{lane}_{1|2}.fq.gz
     e.g. GPS263943_MKDN260040585-1A_23M5MYLT4_L4_1.fq.gz
 The DNA barcode is looked up in the "CB ech ADN" column of the sample table to
 get the pool type ("Type Matrice") and a readable name ("Nom Ext").
+The sheet has one row per read group (pool x library x lane), the pool columns
+(type, ploidy, name) repeated on every row of the pool.
 
 Usage:
     tools/make_sheets.py --table ../Table_echantillons_FecDist.xlsm /data/*/*.fq.gz
@@ -46,10 +48,9 @@ def parse_args():
     parser.add_argument("--list", type=Path, help="text file with one FASTQ path per line")
     parser.add_argument("--table", type=Path, required=True, help="Table_echantillons_FecDist.xlsm")
     parser.add_argument("--samples", type=Path, default=Path("config/samples.tsv"))
-    parser.add_argument("--units", type=Path, default=Path("config/units.tsv"))
     parser.add_argument("--drone-ploidy", type=int, default=2)
     parser.add_argument("--worker-ploidy", type=int, default=50)
-    parser.add_argument("--force", action="store_true", help="overwrite existing sheets")
+    parser.add_argument("--force", action="store_true", help="overwrite an existing sheet")
     parser.add_argument("--skip-unknown", action="store_true",
                         help="leave out pools absent from the table instead of stopping")
     return parser.parse_args()
@@ -114,29 +115,23 @@ def main():
         name = table.loc[sample, "Nom Ext"]
         samples[sample] = (pool_type, ploidy[pool_type], "" if pd.isna(name) else name)
 
-    for sheet in (args.samples, args.units):
-        if sheet.exists() and not args.force:
-            problems.append(f"{sheet} exists (use --force to overwrite)")
+    if args.samples.exists() and not args.force:
+        problems.append(f"{args.samples} exists (use --force to overwrite)")
 
     if problems:
         sys.exit("Nothing written:\n  " + "\n  ".join(problems))
 
     args.samples.parent.mkdir(parents=True, exist_ok=True)
     with open(args.samples, "w") as out:
-        out.write("sample\ttype\tploidy\tname\n")
-        for sample, (pool_type, pool_ploidy, name) in samples.items():
-            out.write(f"{sample}\t{pool_type}\t{pool_ploidy}\t{name}\n")
-
-    args.units.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.units, "w") as out:
-        out.write("sample\tunit\tfq1\tfq2\tlibrary\n")
+        out.write("sample\ttype\tploidy\tname\tunit\tfq1\tfq2\tlibrary\n")
         for (sample, library, flowcell, lane), reads in sorted(units.items()):
+            pool_type, pool_ploidy, name = samples[sample]
             fq1, fq2 = os.path.abspath(reads["1"]), os.path.abspath(reads["2"])
-            out.write(f"{sample}\t{flowcell}_{lane}\t{fq1}\t{fq2}\t{library}\n")
+            out.write(f"{sample}\t{pool_type}\t{pool_ploidy}\t{name}"
+                      f"\t{flowcell}_{lane}\t{fq1}\t{fq2}\t{library}\n")
 
     types = pd.Series([t for t, _, _ in samples.values()]).value_counts().to_dict()
-    print(f"{args.samples}: {len(samples)} pools {types}")
-    print(f"{args.units}: {len(units)} units")
+    print(f"{args.samples}: {len(samples)} pools {types}, {len(units)} units")
     if args.skip_unknown and unknown:
         print(f"Warning: {len(unknown)} pools not in {args.table}, left out: {', '.join(unknown)}",
               file=sys.stderr)

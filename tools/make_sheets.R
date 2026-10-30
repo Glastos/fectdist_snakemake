@@ -2,13 +2,15 @@
 # R port of tools/make_sheets.py: same options, checks and output.
 # Needs the readxl and stringi packages.
 
-USAGE <- "Write config/samples.tsv and config/units.tsv from FASTQ file names.
+USAGE <- "Write the sample sheet config/samples.tsv from FASTQ file names.
 
 FASTQ names must follow the provider's pattern:
     {DNA barcode}_{library}_{flowcell}_{lane}_{1|2}.fq.gz
     e.g. GPS263943_MKDN260040585-1A_23M5MYLT4_L4_1.fq.gz
 The DNA barcode is looked up in the \"CB ech ADN\" column of the sample table to
 get the pool type (\"Type Matrice\") and a readable name (\"Nom Ext\").
+The sheet has one row per read group (pool x library x lane), the pool columns
+(type, ploidy, name) repeated on every row of the pool.
 
 Usage:
     tools/make_sheets.R --table ../Table_echantillons_FecDist.xlsm /data/*/*.fq.gz
@@ -24,10 +26,9 @@ Options:
   --list FILE          text file with one FASTQ path per line
   --table FILE         Table_echantillons_FecDist.xlsm (required)
   --samples FILE       default: config/samples.tsv
-  --units FILE         default: config/units.tsv
   --drone-ploidy N     default: 2
   --worker-ploidy N    default: 50
-  --force              overwrite existing sheets
+  --force              overwrite an existing sheet
   --skip-unknown       leave out pools absent from the table instead of stopping
   -h, --help           show this help
 "
@@ -70,11 +71,11 @@ write_tsv <- function(df, path) {
 
 parse_args <- function(argv) {
   args <- list(fastq = character(), list = NULL, table = NULL,
-               samples = "config/samples.tsv", units = "config/units.tsv",
+               samples = "config/samples.tsv",
                drone_ploidy = "2", worker_ploidy = "50",
                force = FALSE, skip_unknown = FALSE)
   flags <- c("--force", "--skip-unknown")
-  options <- c("--list", "--table", "--samples", "--units", "--drone-ploidy", "--worker-ploidy")
+  options <- c("--list", "--table", "--samples", "--drone-ploidy", "--worker-ploidy")
   i <- 1
   while (i <= length(argv)) {
     arg <- argv[i]
@@ -181,26 +182,25 @@ main <- function() {
                 sprintf("%s: unknown Type Matrice '%s'", samples$sample[untyped], samples$matrix[untyped]))
   samples <- samples[!in_several_rows & !untyped, ]
 
-  for (sheet in c(args$samples, args$units)) {
-    if (file.exists(sheet) && !args$force) {
-      problems <- c(problems, sprintf("%s exists (use --force to overwrite)", sheet))
-    }
+  if (file.exists(args$samples) && !args$force) {
+    problems <- c(problems, sprintf("%s exists (use --force to overwrite)", args$samples))
   }
 
   if (length(problems) > 0) die("Nothing written:\n  ", paste(problems, collapse = "\n  "))
-
-  write_tsv(samples[c("sample", "type", "ploidy", "name")], args$samples)
 
   # radix = C-locale order, like Python's sorted()
   units <- units[order(units$sample, units$library, units$flowcell, units$lane, method = "radix"), ]
   units$fq1 <- abspath(units$fq1)
   units$fq2 <- abspath(units$fq2)
-  write_tsv(units[c("sample", "unit", "fq1", "fq2", "library")], args$units)
+  # Pool columns repeated on every row of the pool
+  row <- match(units$sample, samples$sample)
+  for (column in c("type", "ploidy", "name")) units[[column]] <- samples[[column]][row]
+  write_tsv(units[c("sample", "type", "ploidy", "name", "unit", "fq1", "fq2", "library")],
+            args$samples)
 
   counts <- sort(table(samples$type), decreasing = TRUE)
-  cat(sprintf("%s: %d pools {%s}\n", args$samples, nrow(samples),
-              paste(names(counts), counts, sep = ": ", collapse = ", ")))
-  cat(sprintf("%s: %d units\n", args$units, nrow(units)))
+  cat(sprintf("%s: %d pools {%s}, %d units\n", args$samples, nrow(samples),
+              paste(names(counts), counts, sep = ": ", collapse = ", "), nrow(units)))
   if (args$skip_unknown && length(unknown) > 0) {
     message(sprintf("Warning: %d pools not in %s, left out: %s",
                     length(unknown), args$table, paste(unknown, collapse = ", ")))

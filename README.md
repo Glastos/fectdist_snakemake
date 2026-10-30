@@ -19,7 +19,11 @@ per pool (modelled per read group).
 
 ## Inputs
 
-- `config/samples.tsv`: one row per pool: `sample`, `type`, `ploidy`
+- `config/samples.tsv`: one row per read group (pool x library x lane). The
+  pool columns (`type`, `ploidy`) are repeated on every row of the pool and
+  must agree. Other columns (e.g. `name`, written by `tools/make_sheets.py`)
+  are ignored.
+  - `sample`: the pool
   - `type`: `drones` or `workers` (informative)
   - `ploidy`: HaplotypeCaller ploidy of the bootstrap calls and of the final
     gVCF.
@@ -28,13 +32,13 @@ per pool (modelled per read group).
     Worker pools: 50. The 2 x n_workers is impractical; the pool holds
     the queen (~25 % per copy) and up to ~25 fathers (~2 % each), and depth
     cannot resolve finer steps (an allele needs a few reads). Real ploidy is closer to 27 (2 queen + 25 drones) but we keep 50 as the frequencies are not equal between them.
-- `config/units.tsv`: one row per read group (pool x library x lane):
-  `sample`, `unit`, `fq1`, `fq2`, and optionally
-  - `library` (default: the sample name, i.e. one library per pool)
+  - `unit`: the read group within the pool, e.g. `{flowcell}_{lane}`
+  - `fq1`, `fq2`: its FASTQ files
+  - `library` (optional): default the sample name, i.e. one library per pool
 - `config/config.yaml`: reference, targets, regions, BQSR parameters.
   The bwa-mem2 index, `.fai` and `.dict` of the reference must already exist.
 
-To build both sheets from the provider's FASTQ names
+To build the sheet from the provider's FASTQ names
 (`{barcode}_{library}_{flowcell}_{lane}_{1|2}.fq.gz`), with the pool type taken
 from the sample table (`CB ech ADN` -> `Type Matrice`):
 
