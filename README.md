@@ -21,7 +21,7 @@ per pool (modelled per read group).
 
 - `config/samples.tsv`: one row per read group (pool x library x lane). The
   pool columns (`type`, `ploidy`) are repeated on every row of the pool and
-  must agree. Other columns (e.g. `name`, written by `tools/make_sheets.py`)
+  must agree. Other columns (e.g. `name`, written by `tools/make_sheets.R`)
   are ignored.
   - `sample`: the pool
   - `type`: `drones` or `workers` (informative)
@@ -43,12 +43,15 @@ To build the sheet from the provider's FASTQ names
 from the sample table (`CB ech ADN` -> `Type Matrice`):
 
 ```bash
-tools/make_sheets.py --table ../Table_echantillons_FecDist.xlsm /path/to/fastq/*/*.fq.gz
-# or: find /path/to/fastq -name "*.fq.gz" > files.txt; tools/make_sheets.py --table ... --list files.txt
+find /path/to/fastq -name "*.fq.gz" > config/files.txt
+tools/make_sheets.R   # or source("tools/make_sheets.R") in R, from the pipeline directory
 ```
 
-Add `--skip-unknown` to leave out (with a warning) pools whose barcode is not in
-the table, instead of stopping.
+The settings are at the top of the script: sample table, FASTQ list, output
+sheet, `SKIP_UNKNOWN` to leave out (with a warning) pools whose barcode is not
+in the table instead of stopping, `OVERWRITE`. The FASTQ paths are written as
+they are in the list, so relative ones must be relative to the pipeline
+directory. Needs R with dplyr, tidyr, stringr, readxl and readr.
 
 Read groups are `ID={sample}.{unit} SM={sample} LB={library} PL=ILLUMINA`, with
 `PU` parsed from the first read name of R1 (`{flowcell}.{lane}.{barcode}`). Only

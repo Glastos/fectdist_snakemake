@@ -3,7 +3,7 @@
 # ==============================================================================
 
 # Sample sheet (see README.md for the columns): one row per read group
-# (pool x library x lane). Can be generated using tools/make_sheets.py
+# (pool x library x lane). Can be generated using tools/make_sheets.R
 samples: config/samples_drones.tsv
 
 # What `snakemake` builds by default. Available targets:
