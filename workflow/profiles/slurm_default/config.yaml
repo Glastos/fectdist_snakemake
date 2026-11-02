@@ -8,6 +8,11 @@ executor: slurm
 # Limit concurrent jobs on the cluster
 jobs: 50
 
+# Upper limit on threads per job
+# Must be set: without it Snakemake uses the CPU count of the machine it runs
+# on, i.e. the 1 CPU of the snakemake.sh job, and runs every rule on 1 thread.
+cores: 32
+
 # Retry failed jobs once (transient I/O errors on scratch filesystems)
 retries: 1
 
