@@ -23,7 +23,7 @@ snakemake --version
 #--config 'targets=[gvcf,qc]'
 
 # True run
-snakemake --profile workflow/profiles/slurm_default --config 'targets=[gvcf,qc]' --dry-run
+snakemake --profile workflow/profiles/slurm_default
 
 # Rulegraph generation
 #snakemake --profile workflow/profiles/slurm_default --forceall --rulegraph \

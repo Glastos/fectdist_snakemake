@@ -4,7 +4,7 @@
 
 # Sample sheet (see README.md for the columns): one row per read group
 # (pool x library x lane). Can be generated using tools/make_sheets.R
-samples: config/samples_drones.tsv
+samples: config/samples_30_oct_2026_drones.tsv
 
 # What `snakemake` builds by default. Available targets:
 #   bam   - recalibrated BAM per pool           results/{sample}/{sample}.bam

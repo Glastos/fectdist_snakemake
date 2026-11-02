@@ -17,7 +17,6 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(tidyr)
   library(stringr)
-  library(readxl)
   library(readr)
 })
 
@@ -25,13 +24,13 @@ suppressPackageStartupMessages({
 # Settings (paths relative to the pipeline directory)
 # ------------------------------------------------------------------------------
 
-TABLE <- "../Table_echantillons_FecDist.xlsm"
+TABLE <- "../dat_complete_Fecdist.tsv"
 # One FASTQ (R1 or R2) per line, e.g. find /data -name "*.fq.gz" > config/files.txt
 # The paths are written as they are in the sheet
-FASTQ_LIST <- "config/files.txt"
-OUTPUT <- "config/samples.tsv"
+FASTQ_LIST <- "tools/list_fastq_30_oct_2026.txt"
+OUTPUT <- "config/samples_30_oct_2026.tsv"
 OVERWRITE <- FALSE      # replace an existing OUTPUT
-SKIP_UNKNOWN <- FALSE   # leave out (with a warning) pools absent from TABLE instead of stopping
+SKIP_UNKNOWN <- TRUE   # leave out (with a warning) pools absent from TABLE instead of stopping
 PLOIDY <- c(drones = 2L, workers = 50L)
 
 # "Type Matrice" in lower case -> pool type (pool male, pool mâle, pool ouvrière;
@@ -57,7 +56,8 @@ duplicates <- fastq |>
   summarise(n = n(), paths = str_flatten(path, " and "), .by = c(id, read)) |>
   filter(n > 1)
 
-pools <- suppressMessages(read_excel(TABLE, col_types = "text")) |>
+# suppressMessages: the table has duplicated column names (Pos, ligne, colone)
+pools <- suppressMessages(read_tsv(TABLE, col_types = cols(.default = "c"))) |>
   filter(!is.na(`CB ech ADN`)) |>
   transmute(sample = `CB ech ADN`, matrix = `Type Matrice`,
             type = unname(POOL_TYPES[str_to_lower(str_trim(matrix))]),
