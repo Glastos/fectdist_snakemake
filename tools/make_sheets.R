@@ -7,7 +7,7 @@
 # The DNA barcode is looked up in the "CB ech ADN" column of the sample table to
 # get the pool type ("Type Matrice") and a readable name ("Nom Ext").
 # The sheet has one row per read group (pool x library x lane), the pool columns
-# (type, ploidy, name) repeated on every row of the pool.
+# (type, ploidy, name) are the same for every rows of the pool.
 #
 # Edit the settings below, then run from the pipeline directory:
 #     tools/make_sheets.R          or, in R:  source("tools/make_sheets.R")
