@@ -15,7 +15,7 @@ rule read_group:
     params:
         library=lambda wildcards: get_unit(wildcards)["library"],
     log:
-        "logs/read_group/{sample}/{unit}.log",
+        "logs/{sample}/read_group/{unit}.log",
     script:
         "../scripts/read_group.py"
 
@@ -30,7 +30,7 @@ rule bwa_mem:
     output:
         temp("results/{sample}/mapping/{unit}.sorted.bam"),
     log:
-        "logs/bwa_mem/{sample}/{unit}.log",
+        "logs/{sample}/bwa_mem/{unit}.log",
     threads: 8
     resources:
         mem_mb=16000,
@@ -57,7 +57,7 @@ rule mark_duplicates:
         java=java_opts,
         inputs=lambda wildcards, input: " ".join(f"-I {bam}" for bam in input),
     log:
-        "logs/mark_duplicates/{sample}.log",
+        "logs/{sample}/mark_duplicates/{sample}.log",
     resources:
         mem_mb=16000,
         runtime=720,

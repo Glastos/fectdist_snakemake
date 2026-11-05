@@ -21,7 +21,7 @@ rule bootstrap_call:
         java=java_opts,
         ploidy=lambda wildcards: pool_ploidy(wildcards.sample),
     log:
-        "logs/bootstrap_call/{sample}/round{round}/{region}.log",
+        "logs/{sample}/bootstrap_call/round{round}/{region}.log",
     threads: 2
     resources:
         mem_mb=10000,
@@ -54,7 +54,7 @@ rule bootstrap_filter:
         site_filter=config["bqsr"]["site_filter"],
         genotype_filter=config["bqsr"]["genotype_filter"],
     log:
-        "logs/bootstrap_filter/{sample}/round{round}/{region}.log",
+        "logs/{sample}/bootstrap_filter/round{round}/{region}.log",
     resources:
         mem_mb=4000,
         runtime=60,
@@ -99,7 +99,7 @@ rule base_recalibrator:
             f"--known-sites {vcf}" for vcf in input.known
         ),
     log:
-        "logs/base_recalibrator/{sample}/round{round}.log",
+        "logs/{sample}/base_recalibrator/round{round}.log",
     resources:
         mem_mb=10000,
         runtime=1440,
@@ -125,7 +125,7 @@ rule apply_bqsr:
     params:
         java=java_opts,
     log:
-        "logs/apply_bqsr/{sample}/round{round}.log",
+        "logs/{sample}/apply_bqsr/round{round}.log",
     resources:
         mem_mb=10000,
         runtime=1440,
@@ -166,7 +166,7 @@ rule bqsr_final_check:
             f"--known-sites {vcf}" for vcf in input.known
         ),
     log:
-        "logs/bqsr_final_check/{sample}.log",
+        "logs/{sample}/bqsr_final_check/{sample}.log",
     resources:
         mem_mb=10000,
         runtime=1440,

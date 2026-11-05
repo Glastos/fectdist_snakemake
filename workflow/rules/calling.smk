@@ -18,7 +18,7 @@ rule haplotype_caller_gvcf:
         java=java_opts,
         ploidy=lambda wildcards: pool_ploidy(wildcards.sample),
     log:
-        "logs/haplotype_caller_gvcf/{sample}.log",
+        "logs/{sample}/haplotype_caller_gvcf/{sample}.log",
     threads: 2
     resources:
         mem_mb=32000,

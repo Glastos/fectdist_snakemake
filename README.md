@@ -94,7 +94,10 @@ results/
 | `gvcf` | `results/{sample}/{sample}.g.vcf.gz` |
 | `qc`   | `results/all/qc/qc_report.html` |
 
-Logs are in `logs/{rule}/`.
+Logs follow the same layout, one folder per pool and one subfolder per rule:
+`logs/{sample}/{rule}/` (e.g. `logs/{sample}/bwa_mem/{unit}.log`,
+`logs/{sample}/bootstrap_call/round{round}/{region}.log`), and `logs/all/{rule}/`
+for what spans all pools (`qc_report`).
 
 
 ## QC report

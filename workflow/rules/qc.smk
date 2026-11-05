@@ -15,7 +15,7 @@ rule samtools_stats:
     output:
         "results/{sample}/qc/{sample}.samtools.stats",
     log:
-        "logs/samtools_stats/{sample}.log",
+        "logs/{sample}/samtools_stats/{sample}.log",
     threads: 4
     resources:
         mem_mb=4000,
@@ -39,7 +39,7 @@ rule mosdepth:
         min_mapq=config["qc"]["mosdepth_min_mapq"],
         window=config["qc"]["mosdepth_window"],
     log:
-        "logs/mosdepth/{sample}.log",
+        "logs/{sample}/mosdepth/{sample}.log",
     threads: 4
     resources:
         mem_mb=4000,
@@ -64,7 +64,7 @@ rule drone_allele_balance:
         max_sites=config["qc"]["allele_balance"]["max_sites"],
         seed=config["qc"]["allele_balance"]["seed"],
     log:
-        "logs/drone_allele_balance/{sample}.log",
+        "logs/{sample}/drone_allele_balance/{sample}.log",
     resources:
         mem_mb=4000,
         runtime=120,
@@ -112,7 +112,7 @@ rule qc_report:
     output:
         "results/all/qc/qc_report.html",
     log:
-        "logs/qc_report/qc_report.log",
+        "logs/all/qc_report/qc_report.log",
     resources:
         mem_mb=8000,
         runtime=60,
