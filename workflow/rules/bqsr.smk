@@ -23,8 +23,9 @@ rule bootstrap_call:
     log:
         "logs/{sample}/bootstrap_call/round{round}/{region}.log",
     threads: 2
+    # Peak 4.8 GB for worker pools at ploidy 50, ~170x (Nov 2026)
     resources:
-        mem_mb=10000,
+        mem_mb=8000,
         runtime=1440,
     conda:
         "../envs/gatk.yaml"
@@ -55,8 +56,9 @@ rule bootstrap_filter:
         genotype_filter=config["bqsr"]["genotype_filter"],
     log:
         "logs/{sample}/bootstrap_filter/round{round}/{region}.log",
+    # Peak 0.3 GB (Nov 2026)
     resources:
-        mem_mb=4000,
+        mem_mb=1000,
         runtime=60,
     conda:
         "../envs/gatk.yaml"
@@ -100,8 +102,9 @@ rule base_recalibrator:
         ),
     log:
         "logs/{sample}/base_recalibrator/round{round}.log",
+    # Peak 0.4 GB (Nov 2026)
     resources:
-        mem_mb=10000,
+        mem_mb=4000,
         runtime=1440,
     conda:
         "../envs/gatk.yaml"
@@ -126,8 +129,9 @@ rule apply_bqsr:
         java=java_opts,
     log:
         "logs/{sample}/apply_bqsr/round{round}.log",
+    # Peak 0.3 GB (Nov 2026)
     resources:
-        mem_mb=10000,
+        mem_mb=4000,
         runtime=1440,
     conda:
         "../envs/gatk.yaml"
@@ -167,8 +171,9 @@ rule bqsr_final_check:
         ),
     log:
         "logs/{sample}/bqsr_final_check/{sample}.log",
+    # Peak 0.4 GB (Nov 2026)
     resources:
-        mem_mb=10000,
+        mem_mb=4000,
         runtime=1440,
     conda:
         "../envs/gatk.yaml"

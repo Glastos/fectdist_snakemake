@@ -58,8 +58,10 @@ rule mark_duplicates:
         inputs=lambda wildcards, input: " ".join(f"-I {bam}" for bam in input),
     log:
         "logs/{sample}/mark_duplicates/{sample}.log",
+    # At 16 GB the job sat at its memory limit (worker pools of ~200 M pairs,
+    # Nov 2026): Java heap (80 %) + JVM overhead + page cache
     resources:
-        mem_mb=16000,
+        mem_mb=24000,
         runtime=720,
     conda:
         "../envs/gatk.yaml"
