@@ -27,7 +27,7 @@ localrules:
     all_regions_bed,
     read_group,
     final_bam,
-    qc_samples,
+    pool_info,
 
 
 rule all:

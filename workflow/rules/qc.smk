@@ -2,7 +2,7 @@
 # QC per pool (results/{sample}/qc/), displayed in results/all/qc/qc_report.html
 # (workflow/report/qc_report.qmd)
 #   samtools stats and mosdepth on the final BAM, BQSR tables (bqsr.smk),
-#   allele balance of the drone pools from their gVCF
+#   allele balance of the drone pools from their gVCF, pool type and ploidy
 # ------------------------------------------------------------------------------
 
 DRONES = samples.loc[samples["type"] == "drones", "sample"].tolist()
@@ -74,24 +74,27 @@ rule drone_allele_balance:
         "../scripts/allele_balance.py"
 
 
-# Pools and their type, read by the report
-rule qc_samples:
+# Type and ploidy of the pool, kept in its folder: the report reads them there,
+# for the pools of any sample sheet (rewritten if the sheet changes them)
+rule pool_info:
     output:
-        "results/all/qc/samples.tsv",
+        "results/{sample}/qc/{sample}.pool.tsv",
     params:
-        rows=samples[["sample", "type", "ploidy"]].values.tolist(),
+        type=lambda w: samples.loc[w.sample, "type"],
+        ploidy=lambda w: samples.loc[w.sample, "ploidy"],
     run:
         with open(output[0], "w") as out:
             out.write("sample\ttype\tploidy\n")
-            for sample, pool_type, ploidy in params.rows:
-                out.write(f"{sample}\t{pool_type}\t{ploidy}\n")
+            out.write(f"{wildcards.sample}\t{params.type}\t{params.ploidy}\n")
 
 
-# Rendered from a copy in results/all/qc/, so the HTML lands next to the QC files
+# Rendered from a copy in results/all/qc/, so the HTML lands next to the QC files.
+# Builds the QC of the pools of the sample sheet, but the report shows every pool
+# folder of results/ with QC files, from earlier runs with other sheets too.
 rule qc_report:
     input:
         qmd=f"{workflow.basedir}/report/qc_report.qmd",
-        samples="results/all/qc/samples.tsv",
+        pool=expand("results/{sample}/qc/{sample}.pool.tsv", sample=SAMPLES),
         stats=expand("results/{sample}/qc/{sample}.samtools.stats", sample=SAMPLES),
         depth=expand(
             "results/{sample}/qc/{sample}.{file}",

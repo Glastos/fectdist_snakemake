@@ -82,10 +82,11 @@ results/
     mapping/                          read groups ({unit}.rg.txt)
     bqsr/                             round*.table, final.table
     qc/                               {sample}.mark_duplicates.metrics.txt, .samtools.stats,
-                                      .mosdepth.*, .regions.bed.gz, .allele_balance.*
+                                      .mosdepth.*, .regions.bed.gz, .allele_balance.*,
+                                      .pool.tsv (type, ploidy)
   all/
     regions/                          BED of the calling regions
-    qc/                               samples.tsv, qc_report.html
+    qc/                               qc_report.html
 ```
 
 | target (`targets` in config) | files |
@@ -113,6 +114,13 @@ for what spans all pools (`qc_report`).
   with the `bam` and `gvcf` targets while the known sites still exist);
 - drone pools: allele balance at SNPs called `0/1` and `1/1` in the gVCF
   (`qc.allele_balance` in config).
+
+The QC files are built for the pools of the sample sheet, but the report shows
+every folder of `results/` that has them, so pools run with other sheets are
+included: their type and ploidy are read from `{sample}/qc/{sample}.pool.tsv`.
+Folders without complete QC are listed at the top of the report. The report is
+re-rendered when the sheet's pools change, not when another run adds pools:
+force it with `--forcerun qc_report`.
 
 Paths are R variables at the top of the `.qmd` (`qc_dir`, `results_dir`),
 relative to `results/all/qc/` where the pipeline renders a copy. To render by

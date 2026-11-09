@@ -35,8 +35,25 @@ mitochondrion <- "NC_001566.1"
 
 # Thresholds to flag pools: none yet
 
-samples <- read_tsv(file.path(qc_dir, "samples.tsv"), show_col_types = FALSE)
-drones <- samples$sample[samples$type == "drones"]
+# Pools: every folder of results/ (but all/) with its QC files, whatever the
+# sample sheet of the run that built them; type and ploidy from {sample}.pool.tsv
+qc_files <- function(s, suffixes) sample_file(s, "qc", paste0(s, suffixes))
+has_files <- function(s, suffixes) all(file.exists(qc_files(s, suffixes)))
+
+folders <- setdiff(basename(list.dirs(results_dir, recursive = FALSE)), "all")
+complete <- map_lgl(folders, has_files, c(
+  ".pool.tsv", ".samtools.stats", ".mosdepth.summary.txt",
+  ".mosdepth.global.dist.txt", ".regions.bed.gz"
+))
+left_out <- folders[!complete]
+
+samples <- map_dfr(folders[complete], function(s) {
+  read_tsv(qc_files(s, ".pool.tsv"), col_types = "cci")
+})
+# Drone pools whose allele balance was computed (needs their gVCF)
+drones <- samples$sample[samples$type == "drones" &
+  map_lgl(samples$sample, has_files,
+          c(".allele_balance.summary.tsv", ".allele_balance.sites.tsv.gz"))]
 
 show_table <- function(df) {
   datatable(df, rownames = FALSE, filter = "top",
@@ -229,6 +246,17 @@ if (length(drones) > 0) {
 
 One row per pool. Mapping from samtools stats, depth from mosdepth (over the 16
 chromosomes), allele balance for drone pools only.
+
+Pools: every folder of `results/` with its QC files (`{sample}.pool.tsv`,
+samtools stats, mosdepth), whichever sample sheet it was run with.
+
+```{r left-out}
+#| results: asis
+if (length(left_out) > 0) {
+  cat("Folders of `results/` left out (QC files missing):",
+      paste0("`", left_out, "`", collapse = ", "), "\n")
+}
+```
 
 ```{r summary}
 samples |>
