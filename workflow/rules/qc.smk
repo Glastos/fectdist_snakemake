@@ -2,10 +2,21 @@
 # QC per pool (results/{sample}/qc/), displayed in results/all/qc/qc_report.html
 # (workflow/report/qc_report.qmd)
 #   samtools stats and mosdepth on the final BAM, BQSR tables (bqsr.smk),
-#   allele balance of the drone pools from their gVCF, pool type and ploidy
+#   allele balance of the drone pools from their gVCF (with the gvcf target),
+#   pool type and ploidy
 # ------------------------------------------------------------------------------
 
 DRONES = samples.loc[samples["type"] == "drones", "sample"].tolist()
+
+# Allele balance of the drone pools only with the gvcf target: `targets: [qc]`
+# alone reports on the pools up to their BAM, without calling the gVCFs
+ALLELE_BALANCE = []
+if "gvcf" in config["targets"]:
+    ALLELE_BALANCE = expand(
+        "results/{sample}/qc/{sample}.allele_balance.{file}",
+        sample=DRONES,
+        file=["sites.tsv.gz", "summary.tsv"],
+    )
 
 
 rule samtools_stats:
@@ -107,11 +118,7 @@ rule qc_report:
             round=range(1, ROUNDS + 1),
         )
         + BQSR_CHECKS,
-        allele_balance=expand(
-            "results/{sample}/qc/{sample}.allele_balance.{file}",
-            sample=DRONES,
-            file=["sites.tsv.gz", "summary.tsv"],
-        ),
+        allele_balance=ALLELE_BALANCE,
     output:
         "results/all/qc/qc_report.html",
     log:
