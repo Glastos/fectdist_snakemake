@@ -113,7 +113,8 @@ for what spans all pools (`qc_report`).
 - BQSR tables: every round, plus a check of the final BAM (`final.table`, built
   with the `bam` and `gvcf` targets while the known sites still exist);
 - drone pools: allele balance at SNPs called `0/1` and `1/1` in the gVCF
-  (`qc.allele_balance` in config).
+  (`qc.allele_balance` in config), only with the `gvcf` target
+  (`targets: [gvcf, qc]`): `qc` alone stops at the BAM.
 
 The QC files are built for the pools of the sample sheet, but the report shows
 every folder of `results/` that has them, so pools run with other sheets are
@@ -126,6 +127,19 @@ Paths are R variables at the top of the `.qmd` (`qc_dir`, `results_dir`),
 relative to `results/all/qc/` where the pipeline renders a copy. To render by
 hand after a run: `cp workflow/report/qc_report.qmd results/all/qc/ && quarto
 render results/all/qc/qc_report.qmd`.
+
+QC of the pools already processed up to their BAM, without processing the
+other pools of the sheet:
+
+```bash
+tools/processed_sheet.sh config/samples_30_oct_2026_drones.tsv > config/samples_processed.tsv
+snakemake --profile workflow/profiles/slurm_default --rerun-triggers mtime \
+    --config samples=config/samples_processed.tsv 'targets=[qc]' --forcerun qc_report
+```
+
+`processed_sheet.sh` keeps the pools with `{sample}.bam` and
+`bqsr/final.table`. A pool with only the BAM is left out, with a message:
+rebuilding its BQSR check would redo its whole BQSR.
 
 ## Graphs
 
