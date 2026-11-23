@@ -29,7 +29,7 @@ if "library" not in units:
 units["library"] = units["library"].where(units["library"] != "", units["sample"])
 
 # Sequencing platform of the read group (PL), Illumina unless stated otherwise
-PLATFORMS = {"ILLUMINA", "ELEMENT"}
+PLATFORMS = {"ILLUMINA", "AVITI"}
 if "platform" not in units:
     units["platform"] = ""
 units["platform"] = units["platform"].where(units["platform"] != "", "ILLUMINA")
