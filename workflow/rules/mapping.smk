@@ -14,6 +14,7 @@ rule read_group:
         "results/{sample}/mapping/{unit}.rg.txt",
     params:
         library=lambda wildcards: get_unit(wildcards)["library"],
+        platform=lambda wildcards: get_unit(wildcards)["platform"],
     log:
         "logs/{sample}/read_group/{unit}.log",
     script:

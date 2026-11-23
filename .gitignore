@@ -29,3 +29,5 @@ snakemake.out
 *.tsv
 !config/samples.tsv
 !config/test/samples.tsv
+
+network/

@@ -21,7 +21,7 @@ library(ggplot2)
 library(DT)
 
 theme_set(theme_bw())
-type_colours <- c(drones = "#1b9e77", workers = "#d95f02")
+type_colours <- c(drones = "#1b9e77", workers = "#d95f02", individuals = "#7570b3")
 
 # Paths, relative to results/all/qc/ where the pipeline renders a copy of this file
 qc_dir <- "."

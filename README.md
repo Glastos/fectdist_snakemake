@@ -24,9 +24,10 @@ per pool (modelled per read group).
   must agree. Other columns (e.g. `name`, written by `tools/make_sheets.R`)
   are ignored.
   - `sample`: the pool
-  - `type`: `drones` or `workers` (informative)
+  - `type`: `drones`, `workers` (pools) or `individuals` (one diploid
+    individual per sample); informative, the QC report colours by type
   - `ploidy`: HaplotypeCaller ploidy of the bootstrap calls and of the final
-    gVCF.
+    gVCF. Individuals: 2.
     Drone pools: 2. The drones are brothers carrying only the queen's two
     copies, so the genotype called is the queen's.
     Worker pools: 50. The 2 x n_workers is impractical; the pool holds
@@ -35,6 +36,8 @@ per pool (modelled per read group).
   - `unit`: the read group within the pool, e.g. `{flowcell}_{lane}`
   - `fq1`, `fq2`: its FASTQ files
   - `library` (optional): default the sample name, i.e. one library per pool
+  - `platform` (optional): `PL` of the read group, `ILLUMINA` (default) or
+    `ELEMENT` (AVITI)
 - `config/config.yaml`: reference, targets, regions, BQSR parameters.
   The bwa-mem2 index, `.fai` and `.dict` of the reference must already exist.
 
@@ -53,12 +56,37 @@ in the table instead of stopping, `OVERWRITE`. The FASTQ paths are written as
 they are in the list, so relative ones must be relative to the pipeline
 directory. Needs R with dplyr, tidyr, stringr, readxl and readr.
 
-Read groups are `ID={sample}.{unit} SM={sample} LB={library} PL=ILLUMINA`, with
-`PU` parsed from the first read name of R1 (`{flowcell}.{lane}.{barcode}`). Only
-Illumina (Casava >= 1.8) read names are accepted. Each unit must hold a single
-lane; check with
+AVITI individual samples
+(`{ID}_{index}-{flowcell}_{lane}_{R1|R2}.fastq.gz`, e.g.
+`SAMEA123056447_TACCTTGT-TTCGTGGA-2607683270_L002_R1.fastq.gz`) have their own
+script, `tools/make_sheets_AVITI.R`, with the same settings block. It reads no
+sample table: every sample gets `type: individuals`, `ploidy: 2`,
+`platform: ELEMENT`, and the index pair as `library` (the names give no
+library ID).
+
+```bash
+find /path/to/fastq -name "*.fastq.gz" > tools/list_fastq_aviti.txt
+tools/make_sheets_AVITI.R
+```
+
+Read groups are `ID={sample}.{unit} SM={sample} LB={library} PL={platform}`,
+with `PU` parsed from the first read name of R1 (`{flowcell}.{lane}.{barcode}`).
+Only Illumina-style read names are accepted
+(`@<instrument>:<run>:<flowcell>:<lane>:<tile>:<x>:<y> <read>:<filtered>:<control>:<barcode>`),
+as written by Illumina (Casava >= 1.8) and AVITI (bases2fastq, whose `<run>`
+is a run name). Each unit must hold a single lane; check with
 `zcat R1.fastq.gz | awk 'NR%4==1' | cut -d: -f3,4 | sort | uniq -c` (one line).
 Resulting read groups: `results/{sample}/mapping/{unit}.rg.txt`.
+
+Pools mapped before the `platform` column existed (Nov 2026) have their
+read groups recorded with the old parameters of the `read_group` rule: run with
+their sheet again, Snakemake would redo them from the mapping on. Once, before
+such a run, forget those records (the `.rg.txt` files are kept and only their
+dates are compared from then on):
+
+```bash
+snakemake --cleanup-metadata results/*/mapping/*.rg.txt
+```
 
 ## Run
 

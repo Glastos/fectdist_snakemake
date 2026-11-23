@@ -28,6 +28,17 @@ if "library" not in units:
     units["library"] = ""
 units["library"] = units["library"].where(units["library"] != "", units["sample"])
 
+# Sequencing platform of the read group (PL), Illumina unless stated otherwise
+PLATFORMS = {"ILLUMINA", "ELEMENT"}
+if "platform" not in units:
+    units["platform"] = ""
+units["platform"] = units["platform"].where(units["platform"] != "", "ILLUMINA")
+if not set(units["platform"]) <= PLATFORMS:
+    raise WorkflowError(
+        f"{SHEET}: unknown platform(s) {sorted(set(units['platform']) - PLATFORMS)}, "
+        f"expected one of {sorted(PLATFORMS)}"
+    )
+
 bad_names = [n for n in [*units["sample"], *units["unit"]] if not SAFE_NAME.match(n)]
 if bad_names:
     raise WorkflowError(f"Sample/unit names may only use A-Z a-z 0-9 . _ -: {bad_names}")
@@ -37,7 +48,7 @@ if units.duplicated(["sample", "unit"]).any():
     raise WorkflowError(f"{SHEET}: duplicated (sample, unit) pairs")
 
 # No effect on the pipeline yet, kept for downstream steps
-POOL_TYPES = {"drones", "workers"}
+POOL_TYPES = {"drones", "workers", "individuals"}
 if not set(units["type"]) <= POOL_TYPES:
     raise WorkflowError(
         f"{SHEET}: unknown type(s) {sorted(set(units['type']) - POOL_TYPES)}, "

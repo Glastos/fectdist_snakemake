@@ -4,6 +4,7 @@
 
 # Sample sheet (see README.md for the columns): one row per read group
 # (pool x library x lane). Can be generated using tools/make_sheets.R
+# (tools/make_sheets_AVITI.R for AVITI individual samples)
 samples: config/samples_30_oct_2026_drones.tsv
 
 # What `snakemake` builds by default. Available targets:

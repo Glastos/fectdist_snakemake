@@ -1,15 +1,16 @@
 """Build the bwa read group of one unit from the first read name of its R1 FASTQ.
 
-PU ({flowcell}.{lane}.{barcode}) is parsed from Illumina (Casava >= 1.8) names:
+PU ({flowcell}.{lane}.{barcode}) is parsed from Illumina-style names:
   @<instrument>:<run>:<flowcell>:<lane>:<tile>:<x>:<y> <read>:<filtered>:<control>:<barcode>
-Any other format stops the job.
+as written by Illumina and by AVITI
+Any other format stops the job. PL is the platform of the unit in the sample sheet.
 """
 
 import gzip
 import re
 
-ILLUMINA = re.compile(
-    r"@[^:\s]+:\d+:(?P<flowcell>[^:\s]+):(?P<lane>\d+):\d+:\d+:\d+(:\S+)?"
+READ_NAME = re.compile(
+    r"@[^:\s]+:[^:\s]+:(?P<flowcell>[^:\s]+):(?P<lane>\d+):\d+:\d+:\d+(:\S+)?"
     r"\s+\d:[YN]:\d+:(?P<barcode>\S+)"
 )
 
@@ -22,14 +23,18 @@ with gzip.open(fastq, "rt") as f:
 with open(snakemake.log[0], "w") as log:
     log.write(f"First read name: {header}\n")
 
-m = ILLUMINA.fullmatch(header)
+m = READ_NAME.fullmatch(header)
 if not m:
-    raise ValueError(f"{fastq}: first read name is not in Illumina (Casava >= 1.8) format: {header}")
+    raise ValueError(
+        f"{fastq}: first read name is not in Illumina-style format (@<instrument>:<run>:"
+        f"<flowcell>:<lane>:<tile>:<x>:<y> <read>:<filtered>:<control>:<barcode>): {header}"
+    )
 
 # Literal \t: bwa mem -R expands them
 with open(snakemake.output[0], "w") as out:
     out.write(
-        f"@RG\\tID:{sample}.{snakemake.wildcards.unit}\\tSM:{sample}\\tPL:ILLUMINA"
+        f"@RG\\tID:{sample}.{snakemake.wildcards.unit}\\tSM:{sample}"
+        f"\\tPL:{snakemake.params.platform}"
         f"\\tLB:{snakemake.params.library}"
         f"\\tPU:{m['flowcell']}.{m['lane']}.{m['barcode']}\n"
     )
